@@ -6,7 +6,10 @@
 # Datatypes (KEYWORD1)
 #######################################
 
-uSEMP	KEYWORD1
+uSEMP			KEYWORD1
+PlanningData	KEYWORD1
+DeviceStatus	KEYWORD1
+DeviceInfo		KEYWORD1
 
 #######################################
 # Methods and Functions (KEYWORD2)
@@ -16,6 +19,7 @@ getPlanning		KEYWORD2
 requestEnergy	KEYWORD2
 updateEnergy	KEYWORD2
 setPwr			KEYWORD2
+setPwrState		KEYWORD2
 
 #######################################
 # Instances (KEYWORD2)
