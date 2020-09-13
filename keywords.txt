@@ -20,6 +20,7 @@ requestEnergy	KEYWORD2
 updateEnergy	KEYWORD2
 setPwr			KEYWORD2
 setPwrState		KEYWORD2
+loopSEMP		KEYWORD2
 
 #######################################
 # Instances (KEYWORD2)

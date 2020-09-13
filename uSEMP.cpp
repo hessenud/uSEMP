@@ -91,12 +91,16 @@ void uSEMP::xml_cb(uint8_t statusflags, char* tagName,
 #endif
 
 uSEMP::uSEMP( const char* i_udn_uuid,const char* i_deviceID, const char* i_deviceName
-		, const char* i_deviceSerial, const char* i_deviceType, const char* i_vendor, unsigned i_maxConsumption, unsigned long (*i_getTime)() )
+		, const char* i_deviceSerial, const char* i_deviceType, const char* i_vendor, unsigned i_maxConsumption, unsigned long (*i_getTime)()
+		, void (*i_setPwr)( bool i_state ), ESP8266WebServer* i_server, unsigned i_port  )
 : stat( i_deviceID, true, i_maxConsumption )
 ,info( i_udn_uuid, i_deviceID, i_deviceName, i_deviceSerial, i_deviceType, i_vendor)
 {
 	// initialize this instance's variables
 	get__time = i_getTime;
+	m_setPwrState = i_setPwr;
+	m_server = i_server;
+	m_port = i_port;
 	m_schemaS = 0;
 	size_devInfo            = strlen(deviceInfo_tmpl) + strlen(info.deviceID()) + strlen(info.deviceName()) + strlen(info.deviceSerial() + 3);
 	size_deviceStatus	    = strlen(deviceStatus_tmpl) + strlen(info.deviceID()) + 12*32;
@@ -140,7 +144,7 @@ const char* uSEMP::makeSsdpScheme( ssdp_cfg* i_ssdpcfg)
 			"   </serviceList>\n"
 			"   <presentationURL>%s</presentationURL>\n"
 			"   <semp:X_SEMPSERVICE xmlns:semp=\"urn:schemas-simple-energy-management-protocol:service-1-0\">\n"
-			"     <semp:server>http://%s:80</semp:server>\n"
+			"     <semp:server>http://%s:%d</semp:server>\n"
 			"     <semp:basePath>/semp</semp:basePath>\n"
 			"     <semp:transport>HTTP/Pull</semp:transport>\n"
 			"     <semp:exchangeFormat>XML</semp:exchangeFormat>\n"
@@ -159,8 +163,9 @@ const char* uSEMP::makeSsdpScheme( ssdp_cfg* i_ssdpcfg)
 	sizeOfScheme += strlen( i_ssdpcfg->modelURL);
 	sizeOfScheme += strlen( i_ssdpcfg->udn_uuid);
 	sizeOfScheme += strlen( i_ssdpcfg->presentationURL);
-	sizeOfScheme += strlen( i_ssdpcfg->IP)
-											+ 11;
+	sizeOfScheme += strlen( i_ssdpcfg->IP);
+	sizeOfScheme += 5;  /* len of portNr */
+	+ 11;
 
 
 	if (m_schemaS ) delete [] m_schemaS;
@@ -176,7 +181,8 @@ const char* uSEMP::makeSsdpScheme( ssdp_cfg* i_ssdpcfg)
 			,i_ssdpcfg->modelURL
 			,i_ssdpcfg->udn_uuid
 			,i_ssdpcfg->presentationURL
-			,i_ssdpcfg->IP );
+			,i_ssdpcfg->IP
+			,m_port);
 
 	return m_schemaS;
 }
@@ -211,7 +217,7 @@ void uSEMP::handlePowerCtl() {
 		String p1Name = m_server->argName(n);
 		String p1Val = m_server->arg(n);
 		Serial.printf("p%dName: %s  val: %s\n",n, p1Name.c_str(), p1Val.c_str() );
-		if (p1Name == String("plain"))
+		if (p1Name == "plain")
 		{
 #ifdef USE_TINYXML
 			g_activeSEMP = this; //this is nasty stateful code, but w/o modifying TinyXML.....
@@ -246,11 +252,14 @@ void uSEMP::handlePowerCtl() {
 	return;
 }
 
-void uSEMP::startService(ESP8266WebServer* i_server, void (*i_setPwr)( bool i_state ) ) {
-	m_server = i_server;
-	m_setPwrState = i_setPwr;
+void uSEMP::handleNotFound()
+{
+	m_server->send ( 404, "text/plain", "not found" );
+}
+void uSEMP::startService( ) {
+
 	m_server->on("/semp/", HTTP_GET, [this]() {
-		Serial.println("SEMP request /\n");
+		Serial.println("----------------------------------------------------------------------SEMP request /\n");
 
 		unsigned wp = 0;
 
@@ -261,11 +270,11 @@ void uSEMP::startService(ESP8266WebServer* i_server, void (*i_setPwr)( bool i_st
 				, info.deviceSerial(), info.deviceType(), info.vendor()
 				, stat.m_maxPwr );
 		wp += makeDeviceStatusRequest(&m_respBuffer[wp]);
-		wp += makePlanningRequests(&m_respBuffer[wp]);
+		wp += makePlanningRequests( getTime(), &m_respBuffer[wp]);
 		wp += snprintf(&m_respBuffer[wp], m_sizeRespBuffer-wp, "%s",resp_footer);
 
 
-		m_server->send ( 200, "application/xml", String(m_respBuffer) );
+		m_server->send ( 200, "application/xml", m_respBuffer );
 	});
 	m_server->on("/semp/DeviceInfo", HTTP_GET, [this]() {
 		unsigned wp = 0;
@@ -274,7 +283,7 @@ void uSEMP::startService(ESP8266WebServer* i_server, void (*i_setPwr)( bool i_st
 				, info.deviceSerial(), info.deviceType(),  info.vendor(), stat.m_maxPwr );
 		wp += snprintf(&m_respBuffer[wp], m_sizeRespBuffer-wp, "%s",resp_footer);
 
-		m_server->send ( 200, "application/xml", String(m_respBuffer)  );
+		m_server->send ( 200, "application/xml", m_respBuffer );
 	});
 	m_server->on("/semp/DeviceStatus", HTTP_GET, [this]() {
 		unsigned wp = 0;
@@ -282,19 +291,22 @@ void uSEMP::startService(ESP8266WebServer* i_server, void (*i_setPwr)( bool i_st
 		wp += makeDeviceStatusRequest(&m_respBuffer[wp]);
 		wp += snprintf(&m_respBuffer[wp], m_sizeRespBuffer-wp, "%s",resp_footer);
 
-		m_server->send ( 200, "application/xml", String(m_respBuffer)  );
+		m_server->send ( 200, "application/xml", m_respBuffer );
 	});
 
 	m_server->on("/semp/PlanningRequest", HTTP_GET, [this]() {
 		unsigned wp = 0;
 		wp += snprintf(&m_respBuffer[wp], m_sizeRespBuffer-wp, "%s",resp_header  );
-		wp += makePlanningRequests(&m_respBuffer[wp]);
+		wp += makePlanningRequests(getTime(), &m_respBuffer[wp]);
 		wp += snprintf(&m_respBuffer[wp], m_sizeRespBuffer-wp, "%s",resp_footer);
-		m_server->send ( 200, "application/xml", String(m_respBuffer)  );
+		m_server->send ( 200, "application/xml", m_respBuffer );
 	});
 	m_server->on("/semp/", HTTP_POST,  [this]() {
 		Serial.println("SEMP control /\n");
 		handlePowerCtl(); } );
+
+	//m_server->onNotFound( handleNotFound );
+	m_server->begin();
 }
 
 
@@ -334,9 +346,10 @@ PlanningData *uSEMP::getActivePlan()
 	return stat.m_activePlan;
 }
 
-PlanningData* uSEMP::requestEnergy(unsigned i_now, unsigned i_req, unsigned i_opt,
+int uSEMP::requestEnergy(unsigned i_now, unsigned i_req, unsigned i_opt,
 		unsigned i_est, unsigned i_let)
 {
+	int usedPlan = -1;
 	//Serial.printf("requestEnergy uSEMP: %s   req:%u  opt: %u\n", time2str(i_now), i_req, i_opt);
 
 	/** @todo make new request in a queue => order them so the "nearest" request is active_request for Power Control
@@ -347,6 +360,7 @@ PlanningData* uSEMP::requestEnergy(unsigned i_now, unsigned i_req, unsigned i_op
 	for ( unsigned idx = 0; !plan && (idx< NR_OF_REQUESTS); ++idx  ){
 		if ( !m_plans[idx].used() ) {
 			plan =  &m_plans[idx];
+			usedPlan = int(idx);
 			break;
 		}
 	}
@@ -358,22 +372,31 @@ PlanningData* uSEMP::requestEnergy(unsigned i_now, unsigned i_req, unsigned i_op
 	if ( !stat.EM_On ) {
 		stat.m_activePlan = 0;
 	} // else the active Plan shouldn't be cancelled.  SEMP spec demands planning request must not overlap
-	return plan;
+	return usedPlan;
 }
 
+
+int uSEMP::deleteEnergyRequest(int i_plan)
+{
+	unsigned idx = unsigned(i_plan);
+	if ( idx < NR_OF_REQUESTS) {
+		m_plans[idx].reset();
+	}
+	return -1;
+}
 
 /**
  * make a planning request fron an existing plan
  */
-int uSEMP::makeRequestFromPlan(PlanningData* i_plan, char* o_wp)
+int uSEMP::makeRequestFromPlan(unsigned i_now, PlanningData* i_plan, char* o_wp)
 {
 	int ret=0;
 	if ( i_plan ) {
 		//		Serial.printf("makeRequestFromPlan %p\n", i_plan);
 		if( i_plan->m_requestedEnergy || i_plan->m_optionalEnergy  ) {
-			unsigned _now = getTime();
-			int est = i_plan->m_earliestStart - _now;  if (est <0) { est =0;  }
-			int let = i_plan->m_latestEnd - _now;     if (let <0) { let =0;  }
+//			unsigned _now = getTime();
+			int est = i_plan->m_earliestStart - i_now;  if (est <0) { est =0;  }
+			int let = i_plan->m_latestEnd - i_now;     if (let <0) { let =0;  }
 			i_plan->m_maxOnTime = min( i_plan->m_maxOnTime, (unsigned)let );
 			i_plan->m_minOnTime = min( i_plan->m_minOnTime, i_plan->m_maxOnTime );
 
@@ -405,7 +428,11 @@ void uSEMP::updateEnergy(unsigned i_now, int i_req, int i_optional)
 
 }
 
-int uSEMP::makePlanningRequests(char* o_buf)
+void uSEMP::loop() {
+	m_server->handleClient();
+}
+
+int uSEMP::makePlanningRequests(unsigned i_now, char* o_buf)
 {
 	int wp = 0;
 	o_buf[wp]=0;
@@ -414,8 +441,8 @@ int uSEMP::makePlanningRequests(char* o_buf)
 	{
 		PlanningData* pl = &m_plans[idx];
 		if( pl->used() ) {
-			if (pl->updateEnergy(getTime())) {
-				wp += makeRequestFromPlan( pl, &o_buf[wp]);
+			if (pl->updateEnergy(i_now)) {
+				wp += makeRequestFromPlan( i_now, pl, &o_buf[wp]);
 			} else {
 				// just passed... maybe we should switch OFF?
 				if ( pl == stat.m_activePlan ) {
@@ -438,8 +465,8 @@ bool PlanningData::updateEnergy(unsigned i_now, int i_req, int i_opt)
 		if( newOpt>0)  m_optionalEnergy  = newOpt;  else m_optionalEnergy  = 0;
 
 
-		m_minOnTime = KWh2KWs(m_requestedEnergy) / m_maxPwr;
-		m_maxOnTime = KWh2KWs(m_optionalEnergy)  / m_maxPwr;
+		m_minOnTime = Wh2Ws(m_requestedEnergy) / m_maxPwr;
+		m_maxOnTime = Wh2Ws(m_optionalEnergy)  / m_maxPwr;
 
 		int let = m_latestEnd - i_now;
 		//		Serial.printf("------> let: %s\n", time2str(let));

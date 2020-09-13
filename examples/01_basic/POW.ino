@@ -33,7 +33,7 @@ void setupPOW() {
     // Open the relay to switch on the load
     relayState = LOW;
     
-    g_semp->startService( &http_server, setPwr );
+    g_semp->startService( );
     g_semp->setPwrState( relayState );
     pwrIdx = 0;
     averagePwr = 0;
@@ -43,15 +43,10 @@ void setupPOW() {
     { 
       powers[n] = 0;
     }
-
-//
-
  
     http_server.on("/pwr", HTTP_GET, handlePwrReq );
     http_server.on("/pwr", HTTP_POST, handlePwrReq );
     http_server.on("/energy", HTTP_GET, handleEnergyReq );
-
-    // calibrate();
 
     _cumulatedEnergy = 0;
 
@@ -111,8 +106,8 @@ void handleEnergyReq()
     latestStop += (1 DAY);
   }
   Serial.printf("POW now: %s EST: %s  LET: %s\n", String(getTimeString(_now)).c_str(), String(getTimeString(earliestStart)).c_str(), String(getTimeString(latestStop)).c_str());
-  PlanningData* plan = g_semp->requestEnergy(_now, requestedEnergy,  optionalEnergy,  earliestStart, latestStop );
-  Serial.printf("POW requested Energy on plan %p\n", plan);
+  int plan = g_semp->requestEnergy(_now, requestedEnergy,  optionalEnergy,  earliestStart, latestStop );
+  Serial.printf("POW requested Energy on plan %d\n", plan);
     
   String resp = String("[POW] Active Power (W)    : ") + String(activePwr) +
         String("\n Voltage (V)         : ") + String(voltage) +
@@ -145,9 +140,7 @@ void handlePwrReq()
         String("</activePower>\r\n  <averagePower> ") + String(averagePwr) +
         String("</averagePower>\r\n  <voltage> ") + String(voltage) +
         String("</voltage>\r\n  <current> ") + String(current) +
-        String("</current>\r\n  <apparentPower> ") + String(apparentPwr) +
-        String("</apparentPower>\r\n  <powerFactor> ") + String(pwrFactor) +
-        String("</powerFactor>\r\n"
+        String("</current>\r\n"
         "</Stat>\r\n"
         );
         
@@ -161,8 +154,6 @@ void handlePwrReq()
     if (p1Name == String("power"))           {      resp = String("power:") + String(activePwr); //constantly 15W Power
     } else if (p1Name == String("voltage"))  {      resp = String("volt:") + String(voltage); //constantly 230V Power
     } else if (p1Name == String("current"))  {      resp = String("current:") + String(current); //constantly 15W Power
-    } else if (p1Name == String("apparent")) {      resp = String("apparent:") + String(apparentPwr); //constantly 15W Power
-    } else if (p1Name == String("factor"))   {      resp = String("factor:") + String(pwrFactor); //
     } else {
       http_server.send(404, "text/plain", resp);
       return;
@@ -267,13 +258,13 @@ void loopPOW() {
             --optionalEnergy;
             g_semp->updateEnergy( now, 0,  -1 );
           }
-      
         }
         Serial.printf("[POW] _cumulatedEnergy    : %ld\n", _cumulatedEnergy     );  
         Serial.printf("[POW] cumulatedEnergy    : %u\n", cumulatedEnergy     );  
         Serial.printf("[POW] requestedEnergy    : %u\n", requestedEnergy     );  
         Serial.printf("[POW] optionalEnergy     : %u\n", optionalEnergy     );  
-
+      
+        g_semp->updateEnergy( now, 0,  0 );
         g_semp->setPwr( averagePwr, minPwr, maxPwr);
         
     }

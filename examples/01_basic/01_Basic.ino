@@ -1,20 +1,9 @@
-
-
 /**************************************************************************
-e
- included in any redistribution.
  **************************************************************************/
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
-#include <ESP8266HTTPClient.h>
-#include <WiFiUdp.h>
-#include <uSSDP.h>
+#include <ESP8266SSDP.h>
 #include <uSEMP.h>
-
-
-
-#include <DNSServer.h>
-
 #define DEVICE_SERIAL_NR    1
 
 
@@ -65,22 +54,24 @@ double _pwrMultiplier;
 double _currentMultiplier;
 double _voltageMultiplier;
 
-ESP8266WebServer http_server(80);
-DNSServer dnsServer;
+#define SEMP_PORT 9980
+ESP8266WebServer http_server(80); 
+ESP8266WebServer semp_server(SEMP_PORT);
+
 
 
 uSEMP* g_semp;
 void setup() {
   Serial.begin(SERIAL_BAUDRATE);
- 
+
   snprintf( ChipID, sizeof(ChipID), "%08x", ESP.getChipId() );
-  snprintf( udn_uuid, sizeof(udn_uuid), "f1d67bee-2a4e-d608-ffff-a0fe%08x", ESP.getChipId() );
-  snprintf( DeviceID , sizeof(DeviceID), "F-310268-0000%08x-00", ESP.getChipId() );
+  snprintf( udn_uuid, sizeof(udn_uuid), "f1d67bee-2a4e-d608-ffff-a1fe%08x", ESP.getChipId() );
+  snprintf( DeviceID , sizeof(DeviceID), "F-300268-0000%08x-00", ESP.getChipId() );
   snprintf( DeviceSerial , sizeof(DeviceSerial), "%04d", DEVICE_SERIAL_NR );
   Serial.printf("ChipID: %s\n", ChipID);
   
 
-  g_semp = new uSEMP( udn_uuid, DeviceID, DeviceName, DeviceSerial, "EVCharger", Vendor, MAX_CONSUMPTION, getTime );
+  g_semp = new uSEMP( udn_uuid, DeviceID, DeviceName, DeviceSerial, "EVCharger", Vendor, MAX_CONSUMPTION, getTime, setPwr, &semp_server, SEMP_PORT );
   Serial.printf("uuid  : %s\n", g_semp->udn_uuid());
   Serial.printf("DevID : %s\n", g_semp->deviceID());
   
@@ -130,12 +121,13 @@ void loop()
    
     
     Serial.printf("LED: %s  Relay: %s\n", state2txt(!ledState), state2txt( !relayState) );
-    Serial.printf("OLED: %s\n", buffer );
+    Serial.printf("%s\n", buffer );
  
     ltime = now;
   }
   
   loopPOW();
+  g_semp->loop();
 }
 
 

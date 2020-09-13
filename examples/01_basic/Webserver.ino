@@ -28,7 +28,9 @@ void setupWebSrv()
     
     http_server.onNotFound ( handleNotFound );
     http_server.begin();
-
+    
+    // semp_server->onNotFound ( handleNotFound );
+   // semp_server.begin();
   }
 }
 
