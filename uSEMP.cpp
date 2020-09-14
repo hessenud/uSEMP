@@ -165,7 +165,7 @@ const char* uSEMP::makeSsdpScheme( ssdp_cfg* i_ssdpcfg)
 	sizeOfScheme += strlen( i_ssdpcfg->presentationURL);
 	sizeOfScheme += strlen( i_ssdpcfg->IP);
 	sizeOfScheme += 5;  /* len of portNr */
-	+ 11;
+	sizeOfScheme += 1 - 10 * 2;  /* minus format-strings(10 a 2 chars) terminating NULL */
 
 
 	if (m_schemaS ) delete [] m_schemaS;
@@ -327,7 +327,10 @@ PlanningData *uSEMP::getActivePlan()
 
 	unsigned _now = getTime();
 	if ( stat.m_activePlan )  {
-		if ( !stat.m_activePlan->updateEnergy(_now) )  stat.m_activePlan = 0;
+		if ( !stat.m_activePlan->updateEnergy(_now) )  {
+			setPwrState( LOW );
+			stat.m_activePlan = 0;
+		}
 	}
 
 	if ( !stat.m_activePlan ) {
@@ -419,6 +422,10 @@ int uSEMP::makeRequestFromPlan(unsigned i_now, PlanningData* i_plan, char* o_wp)
 void uSEMP::updateEnergy(unsigned i_now, int i_req, int i_optional)
 {
 	if ( stat.m_activePlan ) {
+		Serial.printf("Update: %s  req:%d->%uWh(%us)  opt:%d->%uWh(%us) \n", time2str(i_now)
+				, i_req,      stat.m_activePlan->m_requestedEnergy, stat.m_activePlan->m_minOnTime
+				, i_optional, stat.m_activePlan->m_optionalEnergy,  stat.m_activePlan->m_maxOnTime);
+
 		if (!stat.m_activePlan->updateEnergy(i_now, i_req, i_optional ))
 		{
 			setPwrState( LOW );
@@ -458,7 +465,6 @@ int uSEMP::makePlanningRequests(unsigned i_now, char* o_buf)
 bool PlanningData::updateEnergy(unsigned i_now, int i_req, int i_opt)
 {
 	if( m_used ) {
-		//		Serial.printf("Update: %s   req:%u  opt: %u\n", time2str(i_now), i_req, i_opt);
 		int newReq = m_requestedEnergy + i_req;
 		int newOpt = m_optionalEnergy  + i_opt;
 		if( newReq>0)  m_requestedEnergy = newReq;  else m_requestedEnergy = 0;
@@ -472,13 +478,14 @@ bool PlanningData::updateEnergy(unsigned i_now, int i_req, int i_opt)
 		//		Serial.printf("------> let: %s\n", time2str(let));
 		if (let <0) {
 			let =0;
-			//			Serial.printf("------> let: %d\n", let);
+			Serial.printf("planned passed ------> let: %d\n", let);
 		}
 
 		m_maxOnTime = max(m_minOnTime, m_maxOnTime);
 		m_maxOnTime = min(m_maxOnTime, (unsigned)let);
 		m_minOnTime = min(m_maxOnTime, m_minOnTime);
 		// reset if this plan is past time
+
 		if (m_maxOnTime == 0 ) {
 			reset();
 		}

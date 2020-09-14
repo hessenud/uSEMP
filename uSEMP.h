@@ -20,8 +20,6 @@
 #define KWh2KWs(kwh)  (kwh*3600)
 #define Wh2Ws(wh) 	  (wh*3600)
 #define DAY *(24*3600)
-#define Wh2Ws( e ) ((e)*3600*1000)
-#define Ws2Wh( e ) ((e)/Wh2Ws(1))
 // ----  config
 #define NR_OF_REQUESTS 4
 
@@ -278,12 +276,12 @@ private:
 	int	makeDeviceStatusRequest(char* o_wp);
 	int	makeRequestFromPlan( unsigned i_now, PlanningData* i_plan, char *o_wp);//
 	int makePlanningRequests( unsigned i_now, char* o_wp);//
-	void resetEnergy()
-	{
-		Serial.printf("resetting plan %p --------\n", this);
-		stat.m_activePlan->reset();
-		stat.m_activePlan = 0;
-	}
+//	void resetEnergy()
+//	{
+//		Serial.printf("resetting plan %p --------\n", this);
+//		stat.m_activePlan->reset();
+//		stat.m_activePlan = 0;
+//	}
 };
 
 #endif

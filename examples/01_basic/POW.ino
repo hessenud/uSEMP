@@ -2,6 +2,7 @@
 
 // Check values every 2 seconds
 #define UPDATE_TIME                     3000
+#define Wh2Wms( e ) ((e)*3600*1000)
 
 long _cumulatedEnergy;
 
