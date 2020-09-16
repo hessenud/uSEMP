@@ -42,8 +42,7 @@ A second callback is feedback of EM Control to the device application "setPwr" a
 
 To make itself known to the Energy Manager (EM) the device uses SSDP. The Arduino ESP8266SSDP Library is somewhat limited but still usable,
 as long as you overwrite the Schema. The uSEMP class provides a _makeSsdpScheme()_ method. I haven't found a satisfying way to put that 
-inside the SEMP Library. Also the SSDP Library doesn't respond exactly as the SEMP spec demands and that might be the reason it takes sometimes really long for a Device to become known
-t the EM. This is something i will target soon and implement the correct SSDP inside the SEMP Library...
+inside the SEMP Library. This is something i will target someday...
 
 	...
 	
@@ -91,8 +90,6 @@ An energy plan is updated using updateEnergy
 	 g_semp->deleteEnergyRequest( 2);  // delete energy request 2
 
 
-# Issues
-- SSDP advertising ist now fully conformant to SEMP spec
-- ...  		
+
 		
     
