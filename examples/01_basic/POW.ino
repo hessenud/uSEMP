@@ -78,27 +78,27 @@ unsigned timeStr2Value(  const char* i_ts)
   
   return timeval;  
 }
-
 void handleEnergyReq()
 {
   unsigned requestedEnergy = 0 KWh;
   unsigned optionalEnergy  = 0 KWh;
   unsigned long _now = getTime();
   unsigned dayoffset = _now - (_now%(1 DAY));
-    
+  int    planHandle = -1;
+       
   for( int n = 0; n < http_server.args(); ++n)
   {
     String p1Name = http_server.argName(n);
     String p1Val = http_server.arg(n);
     double value= atof( p1Val.c_str() );
-    Serial.printf("p%dName: %s  val: %s\n",n, p1Name.c_str(), p1Val.c_str() );
-   
+    
     if (p1Name == String("requested"))           { requestedEnergy = value;
     } else if (p1Name == String("optional"))     { optionalEnergy  = value;
     } else if (p1Name == String("start"))        { earliestStart   = value + _now;
     } else if (p1Name == String("end"))          { latestStop      = value + _now;
     } else if (p1Name == String("startTime"))    { earliestStart   = timeStr2Value(p1Val.c_str()) + dayoffset;
     } else if (p1Name == String("endTime"))      { latestStop      = timeStr2Value(p1Val.c_str()) + dayoffset;
+    } else if (p1Name == String("plan"))         { planHandle      = atoi(p1Val.c_str()) ;
     } else {
     }
   }
@@ -107,23 +107,31 @@ void handleEnergyReq()
     latestStop += (1 DAY);
   }
   Serial.printf("POW now: %s EST: %s  LET: %s\n", String(getTimeString(_now)).c_str(), String(getTimeString(earliestStart)).c_str(), String(getTimeString(latestStop)).c_str());
-  int plan = g_semp->requestEnergy(_now, requestedEnergy,  optionalEnergy,  earliestStart, latestStop );
-  Serial.printf("POW requested Energy on plan %d\n", plan);
+  if (planHandle <0 ) {
+    planHandle = g_semp->requestEnergy(_now, requestedEnergy,  optionalEnergy,  earliestStart, latestStop );
+  } else {
+    g_semp->modifyPlan(planHandle, _now, requestedEnergy,  optionalEnergy,  earliestStart, latestStop );
+  }
+  Serial.printf("POW requested Energy on plan %d\n", planHandle);
+
     
-  String resp = String("[POW] Active Power (W)    : ") + String(activePwr) +
-        String("\n Voltage (V)         : ") + String(voltage) +
-        String("\n[POW] Current (A)         : ") + String(current) +
-        String("\n[POW] Energy") +
-        String("\n[POW] \ttotal     : ") + String(cumulatedEnergy) +
-        String("\n[POW] \trequested : ") + String(requestedEnergy) + 
-        String("\n[POW] \toptional  : ") + String(optionalEnergy)  +
-        String("\n[POW] \tstart     : ") + String(getTimeString(earliestStart))   +
-        String("\n[POW] \tend       : ") + String(getTimeString(latestStop))      +
+  String resp = String("[HLW] Active Power (W)    : ") + String(activePwr) +
+        String("\n[HLW] Voltage (V)         : ") + String(voltage) +
+        String("\n[HLW] Current (A)         : ") + String(current) +
+        String("\n[HLW] Energy") +
+        String("\n[HLW] \ttotal     : ") + String(cumulatedEnergy) +
+        String("\n[HLW] \trequested : ") + String(requestedEnergy) + 
+        String("\n[HLW] \toptional  : ") + String(optionalEnergy)  +
+        String("\n[HLW] \tstart     : ") + String(getTimeString(earliestStart))   +
+        String("\n[HLW] \tend       : ") + String(getTimeString(latestStop))      +
         +"\n"; 
-  Serial.printf("response:\n%s\n",  resp.c_str());
+
+  char buffer[resp.length() + 10*40];
+  unsigned wp = sprintf(buffer,"\n%s\n",resp.c_str());
+  g_semp->dumpPlans(&buffer[wp-1]);       
+  Serial.printf("response:\n%s\n",  buffer );
     
-  Serial.printf("%s\n", resp.c_str());
-  http_server.send(200, "text/plain", resp);
+  http_server.send(200, "text/plain", buffer);
   Serial.printf(" requested Energy end\n" );
     
 }

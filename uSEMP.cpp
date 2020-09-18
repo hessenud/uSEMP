@@ -69,11 +69,14 @@ const char* uSEMP::planningRequest_tmpl =
 		" </PlanningRequest>\r\n";
 
 
-const char* time2str( unsigned long theTime ){
+const char* uSEMP::time2str( unsigned long theTime, unsigned i_fmt){
 	static char timestr[9];
 	// print the hour, minute and second:
-	sprintf( timestr, "%2lu:%02lu:%02lu", ((theTime  % 86400L) / 3600), ((theTime  % 3600) / 60), theTime % 60);
-
+	switch (i_fmt){
+	case 2:	sprintf( timestr, "%2lu:%02lu", ((theTime  % 86400L) / 3600), ((theTime  % 3600) / 60)); break;
+	default:
+		sprintf( timestr, "%2lu:%02lu:%02lu", ((theTime  % 86400L) / 3600), ((theTime  % 3600) / 60), theTime % 60);
+	}
 	return timestr;
 }
 
@@ -114,6 +117,28 @@ uSEMP::uSEMP( const char* i_udn_uuid,const char* i_deviceID, const char* i_devic
 #endif
 }
 
+
+
+int uSEMP::dumpPlans(char* o_wp)
+{
+  char* wp = o_wp;
+  PlanningData* activePlan = getActivePlan();
+  for ( unsigned idx = 0; idx< NR_OF_REQUESTS; ++idx  )
+  {
+    PlanningData* plan = getPlan(idx);
+    if (plan){
+      unsigned est = plan->m_earliestStart;
+      unsigned let = plan->m_latestEnd;
+      char act = plan->used() ? ((plan == activePlan) ? '*' : '-') : ' ';
+     // Serial.printf("%d-- plan %p vs active %p  -> %s\n", idx, plan, activePlan, (plan == activePlan) ? "match!!" : "---");
+      wp += sprintf(wp,"%u:%5s-", idx, time2str( est, 2) );
+      wp += sprintf(wp,"%5s%c%u\n", time2str( let, 2), act, plan->m_maxOnTime ); // , plan->m_requestedEnergy, plan->m_optionalEnergy);
+    }
+  }
+  wp += sprintf(wp, "\n--------------------\n");
+  wp += sprintf(wp, "* %s *",  time2str( getTime() ) );
+  return wp - o_wp;
+}
 
 const char* uSEMP::makeSsdpScheme( ssdp_cfg* i_ssdpcfg)
 {
@@ -349,33 +374,32 @@ PlanningData *uSEMP::getActivePlan()
 	return stat.m_activePlan;
 }
 
-int uSEMP::requestEnergy(unsigned i_now, unsigned i_req, unsigned i_opt,
-		unsigned i_est, unsigned i_let)
+
+int uSEMP::modifyPlan(unsigned i_plan, unsigned i_now, unsigned i_req, unsigned i_opt, unsigned i_est, unsigned i_let )
 {
-	int usedPlan = -1;
-	//Serial.printf("requestEnergy uSEMP: %s   req:%u  opt: %u\n", time2str(i_now), i_req, i_opt);
+	int usedPlan = i_plan < NR_OF_REQUESTS ? int(i_plan) : -1;
+	//Serial.printf("modifyPlan uSEMP: %s   req:%u  opt: %u\n", time2str(i_now), i_req, i_opt);
 
-	/** @todo make new request in a queue => order them so the "nearest" request is active_request for Power Control
-	 * the actual request is associated to state
-	 */
-	PlanningData* plan = 0; //getActivePlan();
-
-	for ( unsigned idx = 0; !plan && (idx< NR_OF_REQUESTS); ++idx  ){
-		if ( !m_plans[idx].used() ) {
-			plan =  &m_plans[idx];
-			usedPlan = int(idx);
-			break;
-		}
-	}
-
-	if (plan) {
-		plan->requestEnergy(i_now, i_req, i_opt, i_est, i_let, stat.m_maxConsumption);
-	}
+	PlanningData* plan = &m_plans[usedPlan];
+	plan->requestEnergy(i_now, i_req, i_opt, i_est, i_let, stat.m_maxConsumption);
 	// if no active plan, then let t getActivePlan() determine the next active plan
 	if ( !stat.EM_On ) {
 		stat.m_activePlan = 0;
 	} // else the active Plan shouldn't be cancelled.  SEMP spec demands planning request must not overlap
 	return usedPlan;
+}
+
+
+int uSEMP::requestEnergy(unsigned i_now, unsigned i_req, unsigned i_opt,
+		unsigned i_est, unsigned i_let)
+{
+	for ( unsigned idx = 0; (idx< NR_OF_REQUESTS); ++idx  ){
+		if ( !m_plans[idx].used() ) {
+			return modifyPlan(idx, i_now, i_req, i_opt, i_est, i_let );
+		}
+	}
+
+	return -1;
 }
 
 
@@ -508,7 +532,7 @@ void PlanningData::show()
 PlanningData* PlanningData::requestEnergy(unsigned i_now, unsigned i_req, unsigned i_opt,
 		unsigned i_est, unsigned i_let, unsigned i_maxPwr)
 {
-	Serial.printf("requestEnergy Plan: %s   req:%u  opt: %u\n", time2str(i_now), i_req, i_opt);
+	Serial.printf("requestEnergy Plan: %s   req:%u  opt: %u\n", uSEMP::time2str(i_now), i_req, i_opt);
 
 	m_used = true;		// now this plan is used
 	m_earliestStart = i_est;

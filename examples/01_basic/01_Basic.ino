@@ -4,12 +4,9 @@
 #include <ESP8266mDNS.h>
 #include <ESP8266SSDP.h>
 #include <uSEMP.h>
-#define DEVICE_SERIAL_NR    1
 
-
-# define DEVICE_NAME "SSDPbasic01"
-
-
+#define DEVICE_SERIAL_NR    2
+#define DEVICE_NAME "SSDPbasic01"
 #define HOSTNAME "SSDPbasic01" 
 #define VENDOR   "HesTec"
  
@@ -26,8 +23,8 @@
 // GPIOs
 #define RELAY_PIN                       12
 extern void newTasklet(void (*i_tsklt)(void), unsigned long i_inhibit=0);
-const int ledPin   = 15;
-const int relayPin  = 12;  // Sonoff 12
+const int ledPin   =  BUILTIN_LED; // 15;
+const int relayPin  =12;  // Sonoff 12
 const int buttonPin = 0;
 
 int ledState   = HIGH;
@@ -65,8 +62,8 @@ void setup() {
   Serial.begin(SERIAL_BAUDRATE);
 
   snprintf( ChipID, sizeof(ChipID), "%08x", ESP.getChipId() );
-  snprintf( udn_uuid, sizeof(udn_uuid), "f1d67bee-2a4e-d608-ffff-a1fe%08x", ESP.getChipId() );
-  snprintf( DeviceID , sizeof(DeviceID), "F-300268-0000%08x-00", ESP.getChipId() );
+  snprintf( udn_uuid, sizeof(udn_uuid), "f1d67bee-2a4e-d608-ffff-aefe%08x", ESP.getChipId() );
+  snprintf( DeviceID , sizeof(DeviceID), "F-30021968-0000%08x-00", ESP.getChipId() );
   snprintf( DeviceSerial , sizeof(DeviceSerial), "%04d", DEVICE_SERIAL_NR );
   Serial.printf("ChipID: %s\n", ChipID);
   

@@ -13,7 +13,7 @@ void setupSSDP()
       
       /* description      */  "uSEMP basic example",
       /* modelNr          */  "0.1",
-      /* modelURL         */  "http://www.marihessenauer.de/TPOW_V1",
+      /* modelURL         */  "http://www.vendor.local/SSDPbasic01",
 
   
       /* manufacturer     */  "vendor.local",

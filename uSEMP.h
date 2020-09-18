@@ -186,6 +186,7 @@ class uSEMP
 		else			return 0;
 	}
 	void handleNotFound();
+protected:
 
 
 public:
@@ -232,19 +233,34 @@ public:
 	const char*& deviceSerial()  { return info.deviceSerial();}
 	const char*& vendor()        { return info.vendor();};
 
+	static const char* time2str( unsigned long theTime, unsigned i_fmt=0 );
 
 
 	/**
 	 *  request energy
 	 *  @param  i_now		timestamp in seconds ( e.g. unix time seconds since 1970... )
 	 *  @param  i_req 		requested energy in [Wh]
-	 *  @param  i_optional	optional energy in [Wh]
+	 *  @param  i_opt       optional energy in [Wh]
 	 *  @param  i_est		earliest start time in seconds (absolute timestamp like i_now)
 	 *  @param  i_let		latest end time in seconds (absolute timestamp like i_now)
 	 *
 	 *  @return handle to created plan, -1 if creation failed
 	 */
 	int requestEnergy(unsigned i_now, unsigned i_req, unsigned i_optional, unsigned i_est, unsigned i_let );
+
+
+	/**
+	 *  mondify an energy request / plan
+	 *  @param  i_plan		handle of plan to midify
+	 *  @param  i_now		timestamp in seconds ( e.g. unix time seconds since 1970... )
+	 *  @param  i_req 		requested energy in [Wh]
+	 *  @param  i_opt       optional energy in [Wh]
+	 *  @param  i_est		earliest start time in seconds (absolute timestamp like i_now)
+	 *  @param  i_let		latest end time in seconds (absolute timestamp like i_now)
+	 *
+	 *  @return handle to created plan, -1 if creation failed
+	 */
+	int modifyPlan(unsigned i_plan, unsigned i_now, unsigned i_req, unsigned i_opt, unsigned i_est, unsigned i_let );
 
 	/**
 	 *  update runtime/ energy (differentially )
@@ -253,6 +269,15 @@ public:
 	 *  @param  i_optional	change of optional  energy in [Wh]
 	 */
 	void updateEnergy(unsigned i_now, int i_req, int i_optional);
+
+	/**
+	 * write a readable dump of all plans to o_wp
+	 * @param o_wp 	pointer to a sufficiently large buffer
+	 * 				One Plan is less than 40 chars  plus 2 lines a 40 chars
+	 *
+	 * @return		bytes written in o_wp
+	 */
+	int dumpPlans(char* o_wp);
 
 	PlanningData*	getActivePlan();
 	PlanningData*	getPlan(unsigned idx) { return &m_plans[idx]; }
@@ -272,6 +297,7 @@ public:
 	}
 	// library-accessible "private" interface
 private:
+
 
 	int	makeDeviceStatusRequest(char* o_wp);
 	int	makeRequestFromPlan( unsigned i_now, PlanningData* i_plan, char *o_wp);//
