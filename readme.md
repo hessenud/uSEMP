@@ -91,5 +91,8 @@ An energy plan is updated using updateEnergy
 
 
 
-		
+ToDo: 
+-----------------------------		
+PlanningData is only focused on energy. Sometimes it's more adequate to plan with times only because the actual energy consumption is not known. 
+(washing machine, dryer etc..)
     

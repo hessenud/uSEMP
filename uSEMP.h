@@ -10,6 +10,11 @@
 #define DONT_USE_TINYXML
 
 #include <Arduino.h>
+#include "pgmspace.h"
+
+#include <ESP8266WiFi.h>
+#include <ESP8266mDNS.h>
+#include <ESP8266SSDP.h>
 #include <ESP8266WebServer.h>
 #ifdef USE_TINYXML
 #include <TinyXML.h>
@@ -47,20 +52,20 @@ struct ssdp_cfg {
 
 
 class PlanningData {
-private:
+protected:
 	bool m_used;
 public:
 	unsigned m_minOnTime;
 	unsigned m_maxOnTime;
-	unsigned m_earliestStart;
-	unsigned m_latestEnd;
+	unsigned long m_earliestStart;
+	unsigned long m_latestEnd;
 	unsigned m_maxPwr;
 	unsigned m_requestedEnergy = 0 KWh;
 	unsigned m_optionalEnergy  = 0 KWh;
 	PlanningData* m_next;
 
 
-	void show();
+	int show(char *o_wp, size_t i_maxlen);
 
 	void reset()
 	{
@@ -95,11 +100,13 @@ public:
 	bool used() { return m_used; }
 
 
-	bool updateEnergy(unsigned i_now, int i_req=0, int i_optional=0);
+	bool updateEnergy(unsigned long i_now, int i_req=0, int i_optional=0);
 
 
-	PlanningData *requestEnergy(unsigned i_now, unsigned i_req, unsigned i_optional, unsigned i_est, unsigned i_let, unsigned i_maxPwr);
+	PlanningData *requestEnergy(unsigned long i_now, unsigned i_req, unsigned i_optional, unsigned i_est, unsigned i_let, unsigned i_maxPwr);
+	PlanningData *requestTime(unsigned long i_now, unsigned i_minOnTime, unsigned i_maxOnTime, unsigned i_est, unsigned i_let, unsigned i_maxPwr);
 };
+
 
 class DeviceInfo {
 
@@ -167,6 +174,16 @@ public:
 
 class uSEMP
 {
+	static const char*  scheme_tmpl;
+	static const char* 	resp_tmpl;
+	static const char* 	resp_header;
+	static const char* 	resp_footer;
+
+	static const char* 	deviceInfo_tmpl;
+	static const char* 	deviceStatus_tmpl;
+	static const char* 	planningRequest_tmpl;
+
+
 #ifdef USE_TINYXML
 	TinyXML    m_xml;
 	uint8_t    m_xml_buffer[150]; // For XML decoding
@@ -194,13 +211,7 @@ public:
 	DeviceInfo	  		info;
 	ESP8266WebServer* 	m_server;
 	unsigned 			m_port;
-	static const char* 	resp_tmpl;
-	static const char* 	resp_header;
-	static const char* 	resp_footer;
 
-	static const char* 	deviceInfo_tmpl;
-	static const char* 	deviceStatus_tmpl;
-	static const char* 	planningRequest_tmpl;
 
     char* 				m_schemaS;
 
@@ -246,7 +257,7 @@ public:
 	 *
 	 *  @return handle to created plan, -1 if creation failed
 	 */
-	int requestEnergy(unsigned i_now, unsigned i_req, unsigned i_optional, unsigned i_est, unsigned i_let );
+	int requestEnergy(unsigned long i_now, unsigned i_req, unsigned i_optional, unsigned i_est, unsigned i_let );
 
 
 	/**
@@ -260,7 +271,7 @@ public:
 	 *
 	 *  @return handle to created plan, -1 if creation failed
 	 */
-	int modifyPlan(unsigned i_plan, unsigned i_now, unsigned i_req, unsigned i_opt, unsigned i_est, unsigned i_let );
+	int modifyPlan(unsigned i_plan, unsigned long i_now, unsigned i_req, unsigned i_opt, unsigned i_est, unsigned i_let );
 
 	/**
 	 *  update runtime/ energy (differentially )
@@ -268,7 +279,7 @@ public:
 	 *  @param  i_req 		change of required  energy in [Wh]
 	 *  @param  i_optional	change of optional  energy in [Wh]
 	 */
-	void updateEnergy(unsigned i_now, int i_req, int i_optional);
+	void updateEnergy(unsigned long i_now, int i_req, int i_optional);
 
 	/**
 	 * write a readable dump of all plans to o_wp
@@ -279,11 +290,31 @@ public:
 	 */
 	int dumpPlans(char* o_wp);
 
+	/**
+	 * @brief 	get the most actual Plan/energy request
+	 * @return  the active plan
+	 */
 	PlanningData*	getActivePlan();
+
+	/**
+	 * @param	idx		the index/handle of a specific plan
+	 * @return 	pointer to the plan referenced by <idx>
+	 */
 	PlanningData*	getPlan(unsigned idx) { return &m_plans[idx]; }
 
 
-	int deleteEnergyRequest(int i_plan);
+	/**
+	 * reset the plan refereced by
+	 * @param  i_plan	the index/handle of a specific plan
+	 * @return 0 if successful / -1 otherwise
+	 */
+	int resetPlan(int i_plan);
+
+	/**
+	 * reset all plans
+	 */
+	void deleteAllPlans();
+
 
 	void setPwrState( bool i_state ) { stat.EM_On = i_state;
 	Serial.printf("setPwrState(%s)\n",(stat.EM_On ? "ON":"OFF" )); if(m_setPwrState) m_setPwrState( stat.EM_On );}
@@ -300,14 +331,9 @@ private:
 
 
 	int	makeDeviceStatusRequest(char* o_wp);
-	int	makeRequestFromPlan( unsigned i_now, PlanningData* i_plan, char *o_wp);//
-	int makePlanningRequests( unsigned i_now, char* o_wp);//
-//	void resetEnergy()
-//	{
-//		Serial.printf("resetting plan %p --------\n", this);
-//		stat.m_activePlan->reset();
-//		stat.m_activePlan = 0;
-//	}
+	int	makeRequestFromPlan( unsigned long i_now, PlanningData* i_plan, char *o_wp);//
+	int makePlanningRequests( unsigned long i_now, char* o_wp);//
+
 };
 
 #endif

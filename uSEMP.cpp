@@ -6,6 +6,41 @@
 // include this library's description file
 #include "uSEMP.h"
 
+const char* uSEMP::scheme_tmpl PROGMEM = "<?xml version=\"1.0\"?>\n"
+			"<root xmlns=\"urn:schemas-upnp-org:device-1-0\">\n"
+			" <specVersion>\n"
+			"   <major>1</major>\n"
+			"   <minor>0</minor>\n"
+			" </specVersion>\n"
+			" <device>\n"
+			"   <deviceType>urn:schemas-simple-energy-management-protocol:device:Gateway:1</deviceType>\n"
+			"   <friendlyName>%s</friendlyName>\n"
+			"   <manufacturer>%s</manufacturer>\n"
+			"   <manufacturerURL>%s</manufacturerURL>\n"
+			"   <modelDescription>%s</modelDescription>\n"
+			"   <modelName>%s</modelName>\n"
+			"   <modelNumber>%s</modelNumber>\n"
+			"   <modelURL>%s</modelURL>\n"
+			"   <UDN>uuid:%s</UDN>\n"
+			"   <serviceList>\n"
+			"     <service>\n"
+			"       <serviceType> urn:schemas-simple-energy-management-protocol:service:NULL:1:service:NULL:1 </serviceType>\n"
+			"       <serviceId>urn:schemas-simple-energy-management-protocol:serviceId:NULL:serviceId:NULL </serviceId>\n"
+			"       <SCPDURL>/XD/NULL.xml</SCPDURL>\n"
+			"       <controlURL>/UD/?0</controlURL>\n"
+			"       <eventSubURL></eventSubURL>\n"
+			"     </service>\n"
+			"   </serviceList>\n"
+			"   <presentationURL>%s</presentationURL>\n"
+			"   <semp:X_SEMPSERVICE xmlns:semp=\"urn:schemas-simple-energy-management-protocol:service-1-0\">\n"
+			"     <semp:server>http://%s:%d</semp:server>\n"
+			"     <semp:basePath>/semp</semp:basePath>\n"
+			"     <semp:transport>HTTP/Pull</semp:transport>\n"
+			"     <semp:exchangeFormat>XML</semp:exchangeFormat>\n"
+			"     <semp:wsVersion>1.1.5</semp:wsVersion>\n"
+			"     </semp:X_SEMPSERVICE>\n"
+			" </device>\n"
+			"</root>\n";
 
 
 const char* uSEMP::resp_tmpl   = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<Device2EM xmlns=\"http://www.sma.de/communication/schema/SEMP/v1\">\r\n%s</Device2EM>";
@@ -13,7 +48,7 @@ const char* uSEMP::resp_header = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n
 const char* uSEMP::resp_footer = "</Device2EM>";
 
 
-const char* uSEMP::deviceInfo_tmpl =
+const char* uSEMP::deviceInfo_tmpl PROGMEM =
 		" <DeviceInfo>\r\n"
 		"   <Identification>\r\n"
 		"     <DeviceId>%s</DeviceId>\r\n"
@@ -41,7 +76,7 @@ const char* uSEMP::deviceInfo_tmpl =
 		"   </Capabilities>\r\n"
 		" </DeviceInfo>\r\n";
 
-const char* uSEMP::deviceStatus_tmpl =
+const char* uSEMP::deviceStatus_tmpl PROGMEM =
 		" <DeviceStatus>\r\n"
 		"   <DeviceId>%s</DeviceId>\r\n"
 		"   <EMSignalsAccepted>%s</EMSignalsAccepted>\r\n"
@@ -57,7 +92,7 @@ const char* uSEMP::deviceStatus_tmpl =
 		"   </PowerConsumption>\r\n"
 		" </DeviceStatus>\r\n";
 
-const char* uSEMP::planningRequest_tmpl =
+const char* uSEMP::planningRequest_tmpl PROGMEM =
 		" <PlanningRequest>\r\n"
 		"   <Timeframe>\r\n"
 		"     <DeviceId>%s</DeviceId>\r\n"
@@ -73,9 +108,9 @@ const char* uSEMP::time2str( unsigned long theTime, unsigned i_fmt){
 	static char timestr[9];
 	// print the hour, minute and second:
 	switch (i_fmt){
-	case 2:	sprintf( timestr, "%2lu:%02lu", ((theTime  % 86400L) / 3600), ((theTime  % 3600) / 60)); break;
+	case 2:	sprintf_P( timestr, PSTR("%2lu:%02lu"), ((theTime  % 86400L) / 3600), ((theTime  % 3600) / 60)); break;
 	default:
-		sprintf( timestr, "%2lu:%02lu:%02lu", ((theTime  % 86400L) / 3600), ((theTime  % 3600) / 60), theTime % 60);
+		sprintf_P( timestr, PSTR("%2lu:%02lu:%02lu"), ((theTime  % 86400L) / 3600), ((theTime  % 3600) / 60), theTime % 60);
 	}
 	return timestr;
 }
@@ -131,54 +166,18 @@ int uSEMP::dumpPlans(char* o_wp)
       unsigned let = plan->m_latestEnd;
       char act = plan->used() ? ((plan == activePlan) ? '*' : '-') : ' ';
      // Serial.printf("%d-- plan %p vs active %p  -> %s\n", idx, plan, activePlan, (plan == activePlan) ? "match!!" : "---");
-      wp += sprintf(wp,"%u:%5s-", idx, time2str( est, 2) );
-      wp += sprintf(wp,"%5s%c%u\n", time2str( let, 2), act, plan->m_maxOnTime ); // , plan->m_requestedEnergy, plan->m_optionalEnergy);
+      wp += sprintf_P(wp,PSTR("%u:%5s-"), idx, time2str( est, 2) );
+      wp += sprintf_P(wp,PSTR("%5s%c%u\n"), time2str( let, 2), act, plan->m_maxOnTime ); // , plan->m_requestedEnergy, plan->m_optionalEnergy);
     }
   }
-  wp += sprintf(wp, "\n--------------------\n");
-  wp += sprintf(wp, "* %s *",  time2str( getTime() ) );
+  wp += sprintf_P(wp, PSTR("\n--------------------\n"));
+  wp += sprintf_P(wp, PSTR("* %s *"),  time2str( getTime() ) );
   return wp - o_wp;
 }
 
 const char* uSEMP::makeSsdpScheme( ssdp_cfg* i_ssdpcfg)
 {
-	const char* scheme_tmpl = "<?xml version=\"1.0\"?>\n"
-			"<root xmlns=\"urn:schemas-upnp-org:device-1-0\">\n"
-			" <specVersion>\n"
-			"   <major>1</major>\n"
-			"   <minor>0</minor>\n"
-			" </specVersion>\n"
-			" <device>\n"
-			"   <deviceType>urn:schemas-simple-energy-management-protocol:device:Gateway:1</deviceType>\n"
-			"   <friendlyName>%s</friendlyName>\n"
-			"   <manufacturer>%s</manufacturer>\n"
-			"   <manufacturerURL>%s</manufacturerURL>\n"
-			"   <modelDescription>%s</modelDescription>\n"
-			"   <modelName>%s</modelName>\n"
-			"   <modelNumber>%s</modelNumber>\n"
-			"   <modelURL>%s</modelURL>\n"
-			"   <UDN>uuid:%s</UDN>\n"
-			"   <serviceList>\n"
-			"     <service>\n"
-			"       <serviceType> urn:schemas-simple-energy-management-protocol:service:NULL:1:service:NULL:1 </serviceType>\n"
-			"       <serviceId>urn:schemas-simple-energy-management-protocol:serviceId:NULL:serviceId:NULL </serviceId>\n"
-			"       <SCPDURL>/XD/NULL.xml</SCPDURL>\n"
-			"       <controlURL>/UD/?0</controlURL>\n"
-			"       <eventSubURL></eventSubURL>\n"
-			"     </service>\n"
-			"   </serviceList>\n"
-			"   <presentationURL>%s</presentationURL>\n"
-			"   <semp:X_SEMPSERVICE xmlns:semp=\"urn:schemas-simple-energy-management-protocol:service-1-0\">\n"
-			"     <semp:server>http://%s:%d</semp:server>\n"
-			"     <semp:basePath>/semp</semp:basePath>\n"
-			"     <semp:transport>HTTP/Pull</semp:transport>\n"
-			"     <semp:exchangeFormat>XML</semp:exchangeFormat>\n"
-			"     <semp:wsVersion>1.1.5</semp:wsVersion>\n"
-			"     </semp:X_SEMPSERVICE>\n"
-			" </device>\n"
-			"</root>\n";
-
-	size_t sizeOfScheme = strlen(scheme_tmpl);
+	size_t sizeOfScheme = strlen_P(scheme_tmpl);
 	sizeOfScheme += strlen( i_ssdpcfg->deviceName);
 	sizeOfScheme += strlen( i_ssdpcfg->manufacturer);
 	sizeOfScheme += strlen( i_ssdpcfg->manufacturererURL);
@@ -196,7 +195,7 @@ const char* uSEMP::makeSsdpScheme( ssdp_cfg* i_ssdpcfg)
 	if (m_schemaS ) delete [] m_schemaS;
 	m_schemaS = new char[sizeOfScheme];
 
-	snprintf( m_schemaS, sizeOfScheme, scheme_tmpl
+	snprintf_P( m_schemaS, sizeOfScheme, scheme_tmpl
 			,i_ssdpcfg->deviceName
 			,i_ssdpcfg->manufacturer
 			,i_ssdpcfg->manufacturererURL
@@ -222,7 +221,7 @@ void uSEMP::XML_callback(uint8_t statusflags, char* tagName,
 	memcpy(tbuf, tagName, tagNameLen );   tbuf[tagNameLen] = 0;
 
 	if(statusflags & STATUS_TAG_TEXT) {
-		if (!strcasecmp(tagName, "/EM2Device/DeviceControl/On")) {
+		if (!strcasecmp_P(tagName, PSTR("/EM2Device/DeviceControl/On"))) {
 			if ( strncmp(dbuf, "true", 4) == 0 ) {
 				setPwrState( HIGH );
 			} else {
@@ -236,12 +235,12 @@ void uSEMP::XML_callback(uint8_t statusflags, char* tagName,
 #endif
 
 void uSEMP::handlePowerCtl() {
-	Serial.printf("uSEMP PWR CTL request /\n");
+	//Serial.printf_P(PSTR("uSEMP PWR CTL request /\n"));
 	for( int n = 0; n < m_server->args(); ++n)
 	{
 		String p1Name = m_server->argName(n);
 		String p1Val = m_server->arg(n);
-		Serial.printf("p%dName: %s  val: %s\n",n, p1Name.c_str(), p1Val.c_str() );
+		//Serial.printf_P(PSTR("p%dName: %s  val: %s\n"),n, p1Name.c_str(), p1Val.c_str() );
 		if (p1Name == "plain")
 		{
 #ifdef USE_TINYXML
@@ -254,10 +253,8 @@ void uSEMP::handlePowerCtl() {
 
 #else
 			int idx = p1Val.indexOf("<On>",sizeof(resp_header));
-			Serial.printf("indexOf <On>: %d =", idx);
 			if ( idx >= 0) {
 				String cmd =  p1Val.substring(idx+4,idx+4+4);
-				Serial.printf("%s\n", cmd.c_str() );
 				if ( cmd == "true" ) {
 					setPwrState( HIGH );
 				} else {
@@ -290,44 +287,44 @@ void uSEMP::startService( ) {
 
 		//#define WR_RESP( args...)
 
-		wp += snprintf(&m_respBuffer[wp], m_sizeRespBuffer-wp, "%s",resp_header  );
-		wp += snprintf(&m_respBuffer[wp], m_sizeRespBuffer-wp, deviceInfo_tmpl, info.deviceID(), info.deviceName()
+		wp += snprintf_P(&m_respBuffer[wp], m_sizeRespBuffer-wp, "%s", resp_header );
+		wp += snprintf_P(&m_respBuffer[wp], m_sizeRespBuffer-wp, deviceInfo_tmpl, info.deviceID(), info.deviceName()
 				, info.deviceSerial(), info.deviceType(), info.vendor()
 				, stat.m_maxPwr );
 		wp += makeDeviceStatusRequest(&m_respBuffer[wp]);
 		wp += makePlanningRequests( getTime(), &m_respBuffer[wp]);
-		wp += snprintf(&m_respBuffer[wp], m_sizeRespBuffer-wp, "%s",resp_footer);
+		wp += snprintf_P(&m_respBuffer[wp], m_sizeRespBuffer-wp, "%s", resp_footer );
 
 
 		m_server->send ( 200, "application/xml", m_respBuffer );
 	});
 	m_server->on("/semp/DeviceInfo", HTTP_GET, [this]() {
 		unsigned wp = 0;
-		wp += snprintf(&m_respBuffer[wp], m_sizeRespBuffer-wp, "%s", resp_header  );
-		wp += snprintf(&m_respBuffer[wp], m_sizeRespBuffer-wp, deviceInfo_tmpl, info.deviceID(), info.deviceName()
+		wp += snprintf_P(&m_respBuffer[wp], m_sizeRespBuffer-wp, "%s", resp_header );
+		wp += snprintf_P(&m_respBuffer[wp], m_sizeRespBuffer-wp, deviceInfo_tmpl, info.deviceID(), info.deviceName()
 				, info.deviceSerial(), info.deviceType(),  info.vendor(), stat.m_maxPwr );
-		wp += snprintf(&m_respBuffer[wp], m_sizeRespBuffer-wp, "%s",resp_footer);
+		wp += snprintf_P(&m_respBuffer[wp], m_sizeRespBuffer-wp, "%s",resp_footer );
 
 		m_server->send ( 200, "application/xml", m_respBuffer );
 	});
 	m_server->on("/semp/DeviceStatus", HTTP_GET, [this]() {
 		unsigned wp = 0;
-		wp += snprintf(&m_respBuffer[wp], m_sizeRespBuffer-wp, "%s",resp_header  );
+		wp += snprintf_P(&m_respBuffer[wp], m_sizeRespBuffer-wp, "%s",resp_header );
 		wp += makeDeviceStatusRequest(&m_respBuffer[wp]);
-		wp += snprintf(&m_respBuffer[wp], m_sizeRespBuffer-wp, "%s",resp_footer);
+		wp += snprintf_P(&m_respBuffer[wp], m_sizeRespBuffer-wp, "%s",resp_footer );
 
 		m_server->send ( 200, "application/xml", m_respBuffer );
 	});
 
 	m_server->on("/semp/PlanningRequest", HTTP_GET, [this]() {
 		unsigned wp = 0;
-		wp += snprintf(&m_respBuffer[wp], m_sizeRespBuffer-wp, "%s",resp_header  );
+		wp += snprintf_P(&m_respBuffer[wp], m_sizeRespBuffer-wp, "%s",resp_header );
 		wp += makePlanningRequests(getTime(), &m_respBuffer[wp]);
-		wp += snprintf(&m_respBuffer[wp], m_sizeRespBuffer-wp, "%s",resp_footer);
+		wp += snprintf_P(&m_respBuffer[wp], m_sizeRespBuffer-wp, "%s",resp_footer );
 		m_server->send ( 200, "application/xml", m_respBuffer );
 	});
 	m_server->on("/semp/", HTTP_POST,  [this]() {
-		Serial.println("SEMP control /\n");
+		Serial.println(F("SEMP control /\n"));
 		handlePowerCtl(); } );
 
 	//m_server->onNotFound( handleNotFound );
@@ -337,7 +334,7 @@ void uSEMP::startService( ) {
 
 int uSEMP::makeDeviceStatusRequest(char *o_buf)
 {
-	return snprintf(o_buf, size_deviceStatus, deviceStatus_tmpl
+	return snprintf_P(o_buf, size_deviceStatus, deviceStatus_tmpl
 			, info.deviceID()
 			, /*EMSignalsAccepted*/ "true"
 			, /*Status*/ stat.EM_On ? "On" : "Off"
@@ -375,7 +372,7 @@ PlanningData *uSEMP::getActivePlan()
 }
 
 
-int uSEMP::modifyPlan(unsigned i_plan, unsigned i_now, unsigned i_req, unsigned i_opt, unsigned i_est, unsigned i_let )
+int uSEMP::modifyPlan(unsigned i_plan, unsigned long i_now, unsigned i_req, unsigned i_opt, unsigned i_est, unsigned i_let )
 {
 	int usedPlan = i_plan < NR_OF_REQUESTS ? int(i_plan) : -1;
 	//Serial.printf("modifyPlan uSEMP: %s   req:%u  opt: %u\n", time2str(i_now), i_req, i_opt);
@@ -390,7 +387,7 @@ int uSEMP::modifyPlan(unsigned i_plan, unsigned i_now, unsigned i_req, unsigned 
 }
 
 
-int uSEMP::requestEnergy(unsigned i_now, unsigned i_req, unsigned i_opt,
+int uSEMP::requestEnergy(unsigned long i_now, unsigned i_req, unsigned i_opt,
 		unsigned i_est, unsigned i_let)
 {
 	for ( unsigned idx = 0; (idx< NR_OF_REQUESTS); ++idx  ){
@@ -403,19 +400,29 @@ int uSEMP::requestEnergy(unsigned i_now, unsigned i_req, unsigned i_opt,
 }
 
 
-int uSEMP::deleteEnergyRequest(int i_plan)
+int uSEMP::resetPlan(int i_plan)
 {
 	unsigned idx = unsigned(i_plan);
 	if ( idx < NR_OF_REQUESTS) {
 		m_plans[idx].reset();
+		return 0;
 	}
 	return -1;
 }
 
+
+void uSEMP::deleteAllPlans()
+{
+	for ( unsigned idx = 0; idx < NR_OF_REQUESTS; ++idx) {
+		m_plans[idx].reset();
+	}
+}
+
+
 /**
  * make a planning request fron an existing plan
  */
-int uSEMP::makeRequestFromPlan(unsigned i_now, PlanningData* i_plan, char* o_wp)
+int uSEMP::makeRequestFromPlan(unsigned long i_now, PlanningData* i_plan, char* o_wp)
 {
 	int ret=0;
 	if ( i_plan ) {
@@ -427,7 +434,7 @@ int uSEMP::makeRequestFromPlan(unsigned i_now, PlanningData* i_plan, char* o_wp)
 			i_plan->m_maxOnTime = min( i_plan->m_maxOnTime, (unsigned)let );
 			i_plan->m_minOnTime = min( i_plan->m_minOnTime, i_plan->m_maxOnTime );
 
-			ret = snprintf( o_wp, size_planningRequest, uSEMP::planningRequest_tmpl
+			ret = snprintf_P( o_wp, size_planningRequest, uSEMP::planningRequest_tmpl
 					, info.deviceID()
 					, est /*Earliest Begin*/
 					, let /* LatestEnd */
@@ -443,12 +450,12 @@ int uSEMP::makeRequestFromPlan(unsigned i_now, PlanningData* i_plan, char* o_wp)
 	return ret;
 }
 
-void uSEMP::updateEnergy(unsigned i_now, int i_req, int i_optional)
+void uSEMP::updateEnergy(unsigned long i_now, int i_req, int i_optional)
 {
 	if ( stat.m_activePlan ) {
-		Serial.printf("Update: %s  req:%d->%uWh(%us)  opt:%d->%uWh(%us) \n", time2str(i_now)
-				, i_req,      stat.m_activePlan->m_requestedEnergy, stat.m_activePlan->m_minOnTime
-				, i_optional, stat.m_activePlan->m_optionalEnergy,  stat.m_activePlan->m_maxOnTime);
+//		Serial.printf_P(PSTR("Update: %s  req:%d->%uWh(%us)  opt:%d->%uWh(%us) \n"), time2str(i_now)
+//				, i_req,      stat.m_activePlan->m_requestedEnergy, stat.m_activePlan->m_minOnTime
+//				, i_optional, stat.m_activePlan->m_optionalEnergy,  stat.m_activePlan->m_maxOnTime);
 
 		if (!stat.m_activePlan->updateEnergy(i_now, i_req, i_optional ))
 		{
@@ -463,7 +470,7 @@ void uSEMP::loop() {
 	m_server->handleClient();
 }
 
-int uSEMP::makePlanningRequests(unsigned i_now, char* o_buf)
+int uSEMP::makePlanningRequests(unsigned long i_now, char* o_buf)
 {
 	int wp = 0;
 	o_buf[wp]=0;
@@ -486,7 +493,7 @@ int uSEMP::makePlanningRequests(unsigned i_now, char* o_buf)
 	return wp;
 }
 
-bool PlanningData::updateEnergy(unsigned i_now, int i_req, int i_opt)
+bool PlanningData::updateEnergy(unsigned long i_now, int i_req, int i_opt)
 {
 	if( m_used ) {
 		int newReq = m_requestedEnergy + i_req;
@@ -502,7 +509,6 @@ bool PlanningData::updateEnergy(unsigned i_now, int i_req, int i_opt)
 		//		Serial.printf("------> let: %s\n", time2str(let));
 		if (let <0) {
 			let =0;
-			Serial.printf("planned passed ------> let: %d\n", let);
 		}
 
 		m_maxOnTime = max(m_minOnTime, m_maxOnTime);
@@ -517,23 +523,17 @@ bool PlanningData::updateEnergy(unsigned i_now, int i_req, int i_opt)
 	return used();
 }
 
-void PlanningData::show()
+int PlanningData::show(char* o_wp, size_t i_maxlen)
 {
-	Serial.printf(" %s\n", m_used ? "used" :"free");
-	Serial.printf("min: %u\n", m_minOnTime);
-	Serial.printf("max: %u\n", m_maxOnTime);
-	Serial.printf("est: %s\n", time2str(m_earliestStart) );
-	Serial.printf("lst: %s\n", time2str(m_latestEnd));
-	Serial.printf("pwr: %u\n", m_maxPwr);
-	Serial.printf("req: %u\n", m_requestedEnergy);
-	Serial.printf("opt: %u\n", m_optionalEnergy);
+	return i_maxlen ? snprintf_P(o_wp, i_maxlen-1, PSTR(" %s\nmin: %u\nmax: %u\nest: %s\nlst: %s\npwr: %u\nreq: %u\nopt: %u\n"), m_used ? "used" :"free"
+			, m_minOnTime, m_maxOnTime, time2str(m_earliestStart)
+			, time2str(m_latestEnd), m_maxPwr, m_requestedEnergy, m_optionalEnergy) : 0;
+
 }
 
-PlanningData* PlanningData::requestEnergy(unsigned i_now, unsigned i_req, unsigned i_opt,
+PlanningData* PlanningData::requestEnergy(unsigned long i_now, unsigned i_req, unsigned i_opt,
 		unsigned i_est, unsigned i_let, unsigned i_maxPwr)
 {
-	Serial.printf("requestEnergy Plan: %s   req:%u  opt: %u\n", uSEMP::time2str(i_now), i_req, i_opt);
-
 	m_used = true;		// now this plan is used
 	m_earliestStart = i_est;
 	m_latestEnd     = i_let;
@@ -543,4 +543,12 @@ PlanningData* PlanningData::requestEnergy(unsigned i_now, unsigned i_req, unsign
 	updateEnergy(i_now, i_req, i_opt); // diff
 
 	return this;
+}
+
+PlanningData* PlanningData::requestTime(unsigned long i_now,
+		unsigned i_minOnTime, unsigned i_maxOnTime, unsigned i_est,
+		unsigned i_let, unsigned i_maxPwr) {
+
+
+
 }
