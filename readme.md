@@ -2,7 +2,7 @@ This is a very basic C++ library for Arduino, Implementing SEMP "Simple Energy M
 Right now it works for Esp8266  only, due to the internal usage of Esp8266WebServer. Something that i will probably never address...
 
 Installation
---------------------------------------------------------------------------------
+================
 
 To install this library, just place this entire folder as a subfolder in your
 Arduino/lib/targets/libraries folder.
@@ -16,8 +16,20 @@ Arduino/lib/targets/libraries/uSEMP/keywords.txt (the syntax coloring file)
 Arduino/lib/targets/libraries/uSEMP/examples     (the examples in the "open" menu)
 Arduino/lib/targets/libraries/uSEMP/readme.txt   (this file)
 
+Dependencies
+==============
+ - ESP8266WiFi
+ - ESP8266mDNS
+ - ESP8266SSDP
+ - ESP8266WebServer      ( will change to AsyncWebserver )
+ - uHelper:	https://github.com/hessenud/uHelper.git		- some helper components
+
+
+
+---
+
 Usage
---------------------------------------------------------------------------------
+==============
 After this library is installed, you just have to start the Arduino application.
 You may see a few warning messages as it's built.
 
@@ -72,6 +84,11 @@ When operational you may request energy, and update the actual energy-request (p
 	 *  @return handle to created plan, -1 if creation failed
 	 */
 	int requestEnergy(unsigned i_now, unsigned i_req, unsigned i_optional, unsigned i_est, unsigned i_let );
+	
+	
+		PlanningData *requestTime(unsigned long i_now, unsigned i_minOnTime, unsigned i_maxOnTime, unsigned i_est, unsigned i_let, unsigned i_maxPwr);
+
+
 
 	/**
 	 *  update runtime/ energy (differentially )
@@ -93,6 +110,6 @@ An energy plan is updated using updateEnergy
 
 ToDo: 
 -----------------------------		
-PlanningData is only focused on energy. Sometimes it's more adequate to plan with times only because the actual energy consumption is not known. 
+* PlanningData is only focused on energy. Sometimes it's more adequate to plan with times only because the actual energy consumption is not known. 
 (washing machine, dryer etc..)
-    
+* seperate energy/time requests from planing request to the EM     

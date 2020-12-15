@@ -234,7 +234,56 @@ void uSEMP::XML_callback(uint8_t statusflags, char* tagName,
 
 #endif
 
-void uSEMP::handlePowerCtl() {
+#ifdef USE_ASYNC
+void uSEMP::handlePowerCtl(AsyncWebServerRequest *request)
+{
+	//Serial.printf_P(PSTR("uSEMP PWR CTL request /\n"));
+	request->getParam(PARAM_INPUT_1)->value();
+	for( int n = 0; n < m_server->args(); ++n)
+	{
+		String p1Name = m_server->argName(n);
+		String p1Val = m_server->arg(n);
+		//Serial.printf_P(PSTR("p%dName: %s  val: %s\n"),n, p1Name.c_str(), p1Val.c_str() );
+		if (p1Name == "plain")
+		{
+#ifdef USE_TINYXML
+			g_activeSEMP = this; //this is nasty stateful code, but w/o modifying TinyXML.....
+			const char* ch = p1Val.c_str();
+			while(*ch) {
+				m_xml.processChar(*ch);
+				++ch;
+			}
+
+#else
+			int idx = p1Val.indexOf("<On>",sizeof(resp_header));
+			if ( idx >= 0) {
+				String cmd =  p1Val.substring(idx+4,idx+4+4);
+				if ( cmd == "true" ) {
+					setPwrState( HIGH );
+				} else {
+					setPwrState( LOW );
+				}
+				if ( m_setPwrState ) m_setPwrState( stat.EM_On );
+			}
+
+#endif
+			m_server->send ( 200, "application/xml", "<Device2EM></Device2EM>"  );
+			return;
+		} else {
+
+		}
+	}
+	m_server->send ( 400, "application/xml", "<Device2EM></Device2EM>"  );
+	return;
+}
+
+void uSEMP::handleNotFound()
+{
+	m_server->send ( 404, "text/plain", "not found" );
+}
+#else
+void uSEMP::handlePowerCtl()
+{
 	//Serial.printf_P(PSTR("uSEMP PWR CTL request /\n"));
 	for( int n = 0; n < m_server->args(); ++n)
 	{
@@ -278,6 +327,8 @@ void uSEMP::handleNotFound()
 {
 	m_server->send ( 404, "text/plain", "not found" );
 }
+
+#endif
 void uSEMP::startService( ) {
 
 	m_server->on("/semp/", HTTP_GET, [this]() {
@@ -549,6 +600,6 @@ PlanningData* PlanningData::requestTime(unsigned long i_now,
 		unsigned i_minOnTime, unsigned i_maxOnTime, unsigned i_est,
 		unsigned i_let, unsigned i_maxPwr) {
 
-
+return 0;
 
 }

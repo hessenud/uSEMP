@@ -12,12 +12,36 @@
 #include <Arduino.h>
 #include "pgmspace.h"
 
-#include <ESP8266WiFi.h>
-#include <ESP8266mDNS.h>
-#include <ESP8266SSDP.h>
-#include <ESP8266WebServer.h>
+#if defined(ESP8266)
+  /* ESP8266 Dependencies */
+#  include <ESP8266WiFi.h>
+#  include <ESP8266mDNS.h>
+#  include <ESP8266SSDP.h>
+#elif defined(ESP32)
+  /* ESP32 Dependencies */
+#  include <WiFi.h>
+#endif
+
+#define _USE_ASYNC
+#ifdef USE_ASYNC
+#if defined(ESP8266)
+  /* ESP8266 Dependencies */
+#	include <ESP8266WiFi.h>
+#	include <ESPAsyncTCP.h>
+#	include <ESPAsyncWebServer.h>
+#elif defined(ESP32)
+/* ESP32 Dependencies */
+#	include <WiFi.h>
+#	include <AsyncTCP.h>
+#	include <ESPAsyncWebServer.h>
+#endif
+  typedef AsyncWebServer WebServer_T;
+#else
+#	include <ESP8266WebServer.h>
+typedef ESP8266WebServer WebServer_T;
+#endif
 #ifdef USE_TINYXML
-#include <TinyXML.h>
+#	include <TinyXML.h>
 #endif
 
 // --- helper macros -------
@@ -85,6 +109,7 @@ public:
 		reset();
 	}
 
+
 	PlanningData *set( unsigned i_min, unsigned i_max, unsigned i_est, unsigned i_let, unsigned i_maxPwr=0 )
 	{
 		m_used = true;
@@ -99,10 +124,25 @@ public:
 
 	bool used() { return m_used; }
 
-
+	/**
+	 * update Energy of the active (most actual) energy request
+	 * @param  i_now	the timestamp, for the actualizeation
+	 * @param  i_req		difference of requested energy - value is added to reguested energy of this request
+	 * @param  i_optional	difference of optional energy - value is added to optional energy of this request
+	 *
+	 */
 	bool updateEnergy(unsigned long i_now, int i_req=0, int i_optional=0);
 
-
+	/**
+	 *  request energy
+	 *  @param  i_now		timestamp in seconds ( e.g. unix time seconds since 1970... )
+	 *  @param  i_req 		requested energy in [Wh]
+	 *  @param  i_optional		optional energy in [Wh]
+	 *  @param  i_est		earliest start time in seconds (absolute timestamp like i_now)
+	 *  @param  i_let		latest end time in seconds (absolute timestamp like i_now)
+	 *
+	 *  @return handle to created plan, -1 if creation failed
+	 */
 	PlanningData *requestEnergy(unsigned long i_now, unsigned i_req, unsigned i_optional, unsigned i_est, unsigned i_let, unsigned i_maxPwr);
 	PlanningData *requestTime(unsigned long i_now, unsigned i_minOnTime, unsigned i_maxOnTime, unsigned i_est, unsigned i_let, unsigned i_maxPwr);
 };
@@ -209,7 +249,7 @@ protected:
 public:
 	DeviceStatus  		stat;
 	DeviceInfo	  		info;
-	ESP8266WebServer* 	m_server;
+	WebServer_T* 	m_server;
 	unsigned 			m_port;
 
 
@@ -229,7 +269,7 @@ public:
 
 	uSEMP( const char* i_udn_uuid,const char* i_deviceID, const char* i_deviceName, const char* i_deviceType
 			, const char* i_seviceSerial, const char* i_vendor, unsigned i_maxConsumption
-			, unsigned long (*i_getTime)(), void (*setPwr)( bool i_state ),ESP8266WebServer* i_server, unsigned i_port  );
+			, unsigned long (*i_getTime)(), void (*setPwr)( bool i_state ),WebServer_T* i_server, unsigned i_port  );
 
 	const char* makeSsdpScheme( ssdp_cfg* i_ssdpcfg);
 
