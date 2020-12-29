@@ -6,6 +6,10 @@
  * wifi client
  */
 
+
+#define WLAN_SSID "myWLAN"
+#define WLAN_PASS "myPAss"
+ 
 const char* ssid = WLAN_SSID; //replace "WLAN_SSID" with your WIFI's ssid
 const char* password = WLAN_PASS;  //replace "WLAN_PASS" with your WIFI's password
 
