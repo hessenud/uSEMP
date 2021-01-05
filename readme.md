@@ -86,8 +86,18 @@ When operational you may request energy, and update the actual energy-request (p
 	int requestEnergy(unsigned i_now, unsigned i_req, unsigned i_optional, unsigned i_est, unsigned i_let );
 	
 	
-		PlanningData *requestTime(unsigned long i_now, unsigned i_minOnTime, unsigned i_maxOnTime, unsigned i_est, unsigned i_let, unsigned i_maxPwr);
-
+    /**
+     *  request time
+     *  @param  i_now       timestamp in seconds ( e.g. unix time seconds since 1970... )
+     *  @param  i_minOnTime       requested minumum on time in[s]
+     *  @param  i_maxOnTime   requested maximum/optional on time in[s]
+     *  @param  i_est       earliest start time in seconds (absolute timestamp like i_now)
+     *  @param  i_let       latest end time in seconds (absolute timestamp like i_now)
+     *
+     *  @return handle to created plan, -1 if creation failed
+     */
+    int requestTime(unsigned long i_now, unsigned i_minOnTime, unsigned i_maxOnTime, unsigned i_est, unsigned i_let );
+ 
 
 
 	/**

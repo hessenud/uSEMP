@@ -43,6 +43,27 @@ const char* uSEMP::scheme_tmpl PROGMEM = "<?xml version=\"1.0\"?>\n"
         "</root>\n";
 
 
+const char* uSEMP::devTypeStr( unsigned i_type)
+{
+    const char* ts[] = {
+     "AirConditioning", //0
+    "ElectricVehicle",  //1
+    "Charger",          //2
+    "DishWasher",       //3
+    "Dryer",            //4
+    "EVCharger",        // 5
+    "Fridge",           //6
+    "Heater",           //7
+    "HeatPump",         //8
+    "Motor",            //9
+    "Pump",             //10
+    "WashingMachine",   //11
+    "Other"             //12
+    };
+
+    return ts[i_type%NrOfDevTypes];
+}
+
 const char* uSEMP::resp_tmpl   = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<Device2EM xmlns=\"http://www.sma.de/communication/schema/SEMP/v1\">\r\n%s</Device2EM>";
 const char* uSEMP::resp_header = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<Device2EM xmlns=\"http://www.sma.de/communication/schema/SEMP/v1\">\r\n";
 const char* uSEMP::resp_footer = "</Device2EM>";

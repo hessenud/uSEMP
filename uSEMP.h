@@ -253,6 +253,27 @@ protected:
 
 
 public:
+
+    enum DevType {
+        AirConditioning,
+        ElectricVehicle,
+        Charger,
+        DishWasher,
+        Dryer,
+        EVCharger,
+        Fridge,
+        Heater,
+        HeatPump,
+        Motor,
+        Pump,
+        WashingMachine,
+        Other,
+        //---------
+        NrOfDevTypes
+    };
+
+
+
     DeviceStatus  		stat;
     DeviceInfo	  		info;
     WebServer_T* 	m_server;
@@ -294,7 +315,7 @@ public:
     const char*& vendor()        { return info.vendor();};
 
     static const char* time2str( unsigned long theTime, unsigned i_fmt=0 );
-
+    static const char* devTypeStr( unsigned i_type);
 
     /**
      *  request energy
