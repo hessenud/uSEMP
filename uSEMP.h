@@ -295,7 +295,7 @@ public:
     // user-accessible "public" interface
 
     uSEMP( const char* i_udn_uuid,const char* i_deviceID, const char* i_deviceName, const char* i_deviceType
-            , const char* i_seviceSerial, const char* i_vendor, unsigned i_maxConsumption
+            , const char* i_deviceSerial, const char* i_vendor, unsigned i_maxConsumption
             ,WebServer_T* i_server, unsigned i_port  );
 
     const char* makeSsdpScheme( ssdp_cfg* i_ssdpcfg);
