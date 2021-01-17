@@ -46,19 +46,19 @@ const char* uSEMP::scheme_tmpl PROGMEM = "<?xml version=\"1.0\"?>\n"
 const char* uSEMP::devTypeStr( unsigned i_type)
 {
     const char* ts[] = {
-     "AirConditioning", //0
-    "ElectricVehicle",  //1
-    "Charger",          //2
-    "DishWasher",       //3
-    "Dryer",            //4
-    "EVCharger",        // 5
-    "Fridge",           //6
-    "Heater",           //7
-    "HeatPump",         //8
-    "Motor",            //9
-    "Pump",             //10
-    "WashingMachine",   //11
-    "Other"             //12
+            "AirConditioning", //0
+            "ElectricVehicle",  //1
+            "Charger",          //2
+            "DishWasher",       //3
+            "Dryer",            //4
+            "EVCharger",        // 5
+            "Fridge",           //6
+            "Heater",           //7
+            "HeatPump",         //8
+            "Motor",            //9
+            "Pump",             //10
+            "WashingMachine",   //11
+            "Other"             //12
     };
 
     return ts[i_type%NrOfDevTypes];
@@ -177,11 +177,11 @@ int uSEMP::dumpPlans(char* o_wp)
             char act = plan->used() ? ((plan == activePlan) ? '*' : '-') : ' ';
             // DBG_TRACE("%d-- plan %p vs active %p  -> %s\n", idx, plan, activePlan, (plan == activePlan) ? "match!!" : "---");
             wp += sprintf_P(wp,PSTR("%u:%5s-"), idx, time2str( est, 2) );
-            wp += sprintf_P(wp,PSTR("%5s%c%u\n"), time2str( let, 2), act, plan->m_maxOnTime ); // , plan->m_requestedEnergy, plan->m_optionalEnergy);
+            wp += sprintf_P(wp,PSTR("%5s%c%u%c\n"), time2str( let, 2), act, plan->m_maxOnTime
+                    , (plan->is_timebased() ? 'T' : ' ') );
         }
     }
-    wp += sprintf_P(wp, PSTR("\n--------------------\n"));
-    wp += sprintf_P(wp, PSTR("* %s *"),  time2str( getTime() ) );
+
     return wp - o_wp;
 }
 
@@ -240,9 +240,9 @@ void uSEMP::handlePowerCtl(AsyncWebServerRequest *request)
             if ( idx >= 0) {
                 String cmd =  p1Val.substring(idx+4,idx+4+4);
                 if ( cmd == "true" ) {
-                    setPwrState( HIGH );
+                    setPwrState( true );
                 } else {
-                    setPwrState( LOW );
+                    setPwrState( false );
                 }
                 if ( m_setPwrState ) m_setPwrState( stat.EM_On );
             }
@@ -276,9 +276,9 @@ void uSEMP::handlePowerCtl()
             if ( idx >= 0) {
                 String cmd =  p1Val.substring(idx+4,idx+4+4);
                 if ( cmd == "true" ) {
-                    setPwrState( HIGH );
+                    setPwrState( true );
                 } else {
-                    setPwrState( LOW );
+                    setPwrState( false );
                 }
                 if ( m_setPwrState ) m_setPwrState( stat.EM_On );
             }
@@ -301,8 +301,6 @@ void uSEMP::handleNotFound()
 void uSEMP::startService( ) {
 
     m_server->on("/semp/", HTTP_GET, [this]() {
-        Serial.println("----------------------------------------------------------------------SEMP request /\n");
-
         unsigned wp = 0;
 
         //#define WR_RESP( args...)
@@ -344,7 +342,7 @@ void uSEMP::startService( ) {
         m_server->send ( 200, "application/xml", m_respBuffer );
     });
     m_server->on("/semp/", HTTP_POST,  [this]() {
-        Serial.println(F("SEMP control /\n"));
+        DBG_TRACE_P(PSTR("SEMP control /\n"));
         handlePowerCtl(); } );
 
     //m_server->onNotFound( handleNotFound );
@@ -370,7 +368,7 @@ PlanningData *uSEMP::getActivePlan()
     unsigned _now = getTime();
     if ( stat.m_activePlan )  {
         if ( !stat.m_activePlan->updateEnergy(_now, pwrState() ) )  {
-            setPwrState( LOW );
+            setPwrState( false );
             stat.m_activePlan = 0;
         }
     }
@@ -420,7 +418,6 @@ int uSEMP::modifyPlan(unsigned i_plan, unsigned long i_now, unsigned i_req, unsi
 int uSEMP::modifyPlanTime(unsigned i_plan, unsigned long i_now, unsigned i_min, unsigned i_max, unsigned i_est, unsigned i_let)
 {
     int usedPlan = i_plan < NR_OF_REQUESTS ? int(i_plan) : -1;
-    //DBG_TRACE("modifyPlan uSEMP: %s   req:%u  opt: %u\n", time2str(i_now), i_req, i_opt);
 
     PlanningData* plan = &m_plans[usedPlan];
     plan->requestTime(i_now, i_min, i_max, i_est, i_let, stat.m_maxConsumption);
@@ -460,6 +457,10 @@ int uSEMP::resetPlan(int i_plan)
     if ( idx < NR_OF_REQUESTS) {
         m_plans[idx].reset();
         return 0;
+    } else {
+        if ( stat.m_activePlan ) {
+            stat.m_activePlan->reset();
+        }
     }
     return -1;
 }
@@ -504,20 +505,31 @@ int uSEMP::makeRequestFromPlan(unsigned long i_now, PlanningData* i_plan, char* 
     return ret;
 }
 
-void uSEMP::updateEnergy(unsigned long i_now, int i_req, int i_optional)
+void uSEMP::updateEnergy(unsigned long i_now, int i_req, int i_optional, int i_prolong)
 {
     if ( stat.m_activePlan ) {
         DBG_TRACE_P(PSTR("Update: %s  req:%d->%uWh(%us)  opt:%d->%uWh(%us) \n"), time2str(i_now)
                 , i_req,      stat.m_activePlan->m_requestedEnergy, stat.m_activePlan->m_minOnTime
                 , i_optional, stat.m_activePlan->m_optionalEnergy,  stat.m_activePlan->m_maxOnTime);
 
-        if (!stat.m_activePlan->updateEnergy(i_now, pwrState(), i_req, i_optional ))
+        if (!stat.m_activePlan->updateEnergy(i_now, pwrState(), i_req, i_optional, i_prolong ))
         {
-            setPwrState( LOW );
+            setPwrState( false );
             stat.m_activePlan = 0;
         }
     }
 
+}
+
+void uSEMP::updateTime( unsigned long i_now )
+{
+    if ( stat.m_activePlan ) {
+        if (!stat.m_activePlan->updateEnergy(i_now, pwrState(),0 ,0  ))
+        {
+            setPwrState( false );
+            stat.m_activePlan = 0;
+        }
+    }
 }
 
 void uSEMP::loop() {
@@ -539,7 +551,7 @@ int uSEMP::makePlanningRequests(unsigned long i_now, char* o_buf)
             } else {
                 // just passed... maybe we should switch OFF?
                 if ( pl == stat.m_activePlan ) {
-                    setPwrState( LOW );
+                    setPwrState( false );
                     stat.m_activePlan = 0;
                 }
             }
@@ -551,10 +563,11 @@ int uSEMP::makePlanningRequests(unsigned long i_now, char* o_buf)
 
 
 
-bool PlanningData::updateEnergy(unsigned long i_now, bool i_pwrOn, int i_req, int i_opt )
+bool PlanningData::updateEnergy(unsigned long i_now, bool i_pwrOn, int i_req, int i_opt, int i_prolong )
 {
+    unsigned long dt = i_now-m_lastTime;
+
     if( m_used ) {
-        unsigned long dt = i_now-m_lastTime;
 
         int newReq = m_requestedEnergy + i_req;
         int newOpt = m_optionalEnergy  + i_opt;
@@ -563,8 +576,10 @@ bool PlanningData::updateEnergy(unsigned long i_now, bool i_pwrOn, int i_req, in
 
         if(m_timeBased) {
             if ( i_pwrOn ) { // that means energy is flowing
+                // min and max OnTime is only counted if Power is ON
                 if ( m_minOnTime > dt) m_minOnTime -= dt; else m_minOnTime = 0;
                 if ( m_maxOnTime > dt) m_maxOnTime -= dt; else m_maxOnTime = 0;
+
             }
         } else {
             if( m_maxPwr ) {
@@ -574,6 +589,7 @@ bool PlanningData::updateEnergy(unsigned long i_now, bool i_pwrOn, int i_req, in
                 m_minOnTime = m_maxOnTime = 0;
             }
         }
+        m_latestEnd += i_prolong;
         int let = m_latestEnd - i_now;
         DBG_TRACE("------> let: %s\n", uSEMP::time2str(let));
         if (let <0) {
@@ -589,9 +605,9 @@ bool PlanningData::updateEnergy(unsigned long i_now, bool i_pwrOn, int i_req, in
             reset();
         }
 
-        m_lastTime = i_now;
     }
 
+    m_lastTime = i_now;
     return used();
 }
 

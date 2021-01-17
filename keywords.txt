@@ -18,9 +18,22 @@ DeviceInfo		KEYWORD1
 getPlanning		KEYWORD2
 requestEnergy	KEYWORD2
 updateEnergy	KEYWORD2
+requestTime		KEYWORD2
+updateTime		KEYWORD2
 setPwr			KEYWORD2
 setPwrState		KEYWORD2
-loopSEMP		KEYWORD2
+modifyPlanTime	KEYWORD2
+modifyPlan		KEYWORD2
+updateTime		KEYWORD2
+getActivePlan	KEYWORD2
+getPlan			KEYWORD2
+resetPlan		KEYWORD2
+deleteAllPlans	KEYWORD2
+pwrState		KEYWORD2
+startService	KEYWORD2
+loop			KEYWORD2
+
+
 
 #######################################
 # Instances (KEYWORD2)

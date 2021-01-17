@@ -6,7 +6,7 @@
 // ensure this library description is only included once
 #ifndef USEMP_H
 #define USEMP_H
-
+//#define SEMP_DEBUG
 #ifdef SEMP_DEBUG
 # define DBG_TRACE(...) Serial.printf(__VA_ARGS__)
 # define DBG_TRACE_P(...) Serial.printf_P(__VA_ARGS__)
@@ -136,17 +136,30 @@ public:
 
 
     /**
+     * @return  latest end
+     */
+    unsigned long end() { return m_latestEnd; }
+
+
+    /**
      * @return true if this plan is still requesting energy
      */
     bool is_active();
+
+    /**
+     * @return true if this plan is timebased
+     */
+    bool is_timebased() { return m_timeBased; }
     /**
      * update Energy of the active (most actual) energy request
-     * @param  i_now    the timestamp, for the actualizeation
+     * @param  i_now        the timestamp, for the actualizeation
+     * @param  i_pwrOn      true if Powerstate is ON -> timebase requests modify onTime only if PowerSwitch in ON
      * @param  i_req        difference of requested energy - value is added to reguested energy of this request
      * @param  i_optional   difference of optional energy - value is added to optional energy of this request
+     * @param  i_prolong    prolong latest end time by i_prolong[s]
      *
      */
-    bool updateEnergy(unsigned long i_now, bool i_pwrOn, int i_req=0, int i_optional=0 );
+    bool updateEnergy(unsigned long i_now, bool i_pwrOn, int i_req=0, int i_optional=0, int i_prolong=0 );
 
 
 
@@ -157,10 +170,20 @@ public:
      *  @param  i_optional		optional energy in [Wh]
      *  @param  i_est		earliest start time in seconds (absolute timestamp like i_now)
      *  @param  i_let		latest end time in seconds (absolute timestamp like i_now)
+     *  @param  i_maxPwr    max power drawn by device
      *
      *  @return handle to created plan, -1 if creation failed
      */
     PlanningData *requestEnergy(unsigned long i_now, unsigned i_req, unsigned i_optional, unsigned i_est, unsigned i_let, unsigned i_maxPwr);
+
+    /**
+     *  @param  i_now       timestamp in seconds ( e.g. unix time seconds since 1970... )
+     *  @param  i_minOnTime requested energy in [s]
+     *  @param  i_maxOnTime optional energy in [s]
+     *  @param  i_est       earliest start time in seconds (absolute timestamp like i_now)
+     *  @param  i_let       latest end time in seconds (absolute timestamp like i_now)
+     *  @param  i_maxPwr    max power drawn by device
+     */
     PlanningData *requestTime(unsigned long i_now, unsigned i_minOnTime, unsigned i_maxOnTime, unsigned i_est, unsigned i_let, unsigned i_maxPwr);
 };
 
@@ -168,7 +191,7 @@ public:
 
 class DeviceInfo {
 
-    const char* ChipID;
+    //const char* ChipID;
     const char* Udn_uuid;
     const char* DeviceID;
     const char* DeviceType;
@@ -327,7 +350,7 @@ public:
      *
      *  @return handle to created plan, -1 if creation failed
      */
-    int requestEnergy(unsigned long i_now, unsigned i_req, unsigned i_optional, unsigned i_est, unsigned i_let );
+    int requestEnergy(unsigned long i_now, unsigned i_req, unsigned i_opt, unsigned i_est, unsigned i_let );
 
     /**
      *  request time
@@ -340,8 +363,9 @@ public:
      *  @return handle to created plan, -1 if creation failed
      */
     int requestTime(unsigned long i_now, unsigned i_minOnTime, unsigned i_maxOnTime, unsigned i_est, unsigned i_let );
+
     /**
-     *  mondify an energy request / plan
+     *  modify an energy request / plan
      *  @param  i_plan		handle of plan to midify
      *  @param  i_now		timestamp in seconds ( e.g. unix time seconds since 1970... )
      *  @param  i_req 		requested energy in [Wh]
@@ -371,8 +395,15 @@ public:
      *  @param  i_now		timestamp in seconds ( e.g. unix time seconds since 1970... )
      *  @param  i_req 		change of required  energy in [Wh]
      *  @param  i_optional	change of optional  energy in [Wh]
+     * @param  i_prolong    prolong latest end time by i_prolong[s]
      */
-    void updateEnergy(unsigned long i_now, int i_req, int i_optional);
+    void updateEnergy(unsigned long i_now, int i_req, int i_optional, int i_prolong=0);
+
+    /**
+     *  update runtime for timebased requests / timeframes
+     *  @param  i_now       timestamp in seconds ( e.g. unix time seconds since 1970... )
+     */
+    void updateTime( unsigned long i_now );
 
     /**
      * write a readable dump of all plans to o_wp
@@ -391,7 +422,7 @@ public:
 
     /**
      * @param	idx		the index/handle of a specific plan
-     * @return 	pointer to the plan referenced by <idx>
+     * @return 	pointer to the plan referenced by idx
      */
     PlanningData*	getPlan(unsigned idx) { return &m_plans[idx]; }
 
@@ -401,7 +432,7 @@ public:
      * @param  i_plan	the index/handle of a specific plan
      * @return 0 if successful / -1 otherwise
      */
-    int resetPlan(int i_plan);
+    int resetPlan(int i_plan=-1);
 
     /**
      * reset all plans
