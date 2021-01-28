@@ -78,6 +78,13 @@ struct ssdp_cfg {
 };
 
 
+typedef enum {
+     EM_OFFLINE=-1,
+     EM_ON,
+     EM_OFF
+} EM_state_t;
+
+
 class PlanningData {
 protected:
     bool m_used;
@@ -228,7 +235,7 @@ public:
 
     const char* m_Id;
     bool m_acceptEMS;
-    bool EM_On;
+    EM_state_t EM_stat;
 
     unsigned m_maxConsumption;
     unsigned m_averagePwr;
@@ -248,10 +255,10 @@ public:
         m_maxPwr = 0;
         m_activePlan = 0;
         m_maxConsumption = i_maxConsumption;
+        EM_stat = EM_OFFLINE;
     }
 
 };
-
 
 class uSEMP
 {
@@ -278,7 +285,7 @@ protected:
 public:
 
     enum DevType {
-        AirConditioning,
+        AirConditioning=0,
         ElectricVehicle,
         Charger,
         DishWasher,
@@ -312,7 +319,9 @@ public:
 
     char*  m_respBuffer;
     size_t m_sizeRespBuffer;
-    void (*m_setPwrState)( bool i_state );
+    void (*m_signalEmState)( EM_state_t i_state );
+    void (*m_signalEndOfPlan)( );
+
     PlanningData 	m_plans[NR_OF_REQUESTS];
 
     // user-accessible "public" interface
@@ -322,9 +331,12 @@ public:
             ,WebServer_T* i_server, unsigned i_port  );
 
     const char* makeSsdpScheme( ssdp_cfg* i_ssdpcfg);
-    void setCallbacks( unsigned long (*i_getTime)(), void (*i_setPwr)( bool ) ) {
+    void setCallbacks( unsigned long (*i_getTime)()
+            , void (*i_sigEmS)( EM_state_t )
+            , void (*i_sigEoP)( ) ) {
         get__time = i_getTime;
-        m_setPwrState = i_setPwr;
+        m_signalEmState = i_sigEmS;
+        m_signalEndOfPlan = i_sigEoP;
     }
     void handlePowerCtl();
     void startService( );
@@ -440,13 +452,13 @@ public:
     void deleteAllPlans();
 
 
-    void setPwrState( bool i_state ) {
-        stat.EM_On = i_state;
-        DBG_TRACE("setPwrState(%s)\n",(stat.EM_On ? "ON":"OFF" ));
-        if(m_setPwrState) m_setPwrState( stat.EM_On );
+    void setEmState( EM_state_t i_state ) {
+        stat.EM_stat = i_state;
+        DBG_TRACE("setPwrState(%s)\n",(stat.EM_stat ? "ON":"OFF" ));
+        if(m_signalEmState) m_signalEmState( stat.EM_stat );
     }
 
-    bool pwrState() { return stat.EM_On; }
+    bool getEmState() { return stat.EM_stat; }
 
 
     void setPwr( unsigned i_pwr, unsigned i_min, unsigned i_max) {
@@ -461,7 +473,7 @@ private:
     int	makeDeviceStatusRequest(char* o_wp);
     int	makeRequestFromPlan( unsigned long i_now, PlanningData* i_plan, char *o_wp);//
     int makePlanningRequests( unsigned long i_now, char* o_wp);//
-
+    void updateEMstat(EM_state_t nstat);
 };
 
 #endif

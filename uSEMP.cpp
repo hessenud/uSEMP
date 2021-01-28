@@ -60,8 +60,8 @@ const char* uSEMP::devTypeStr( unsigned i_type)
             "WashingMachine",   //11
             "Other"             //12
     };
-
-    return ts[i_type%NrOfDevTypes];
+    if (i_type > DevType::Other ) i_type = DevType::Other;
+    return ts[i_type];
 }
 
 const char* uSEMP::resp_tmpl   = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<Device2EM xmlns=\"http://www.sma.de/communication/schema/SEMP/v1\">\r\n%s</Device2EM>";
@@ -148,7 +148,7 @@ uSEMP::uSEMP( const char* i_udn_uuid,const char* i_deviceID, const char* i_devic
 {
     // initialize this instance's variables
     get__time = 0;
-    m_setPwrState = 0;
+    m_signalEmState = 0;
     m_server = i_server;
     m_port = i_port;
     m_schemaS = 0;
@@ -240,11 +240,11 @@ void uSEMP::handlePowerCtl(AsyncWebServerRequest *request)
             if ( idx >= 0) {
                 String cmd =  p1Val.substring(idx+4,idx+4+4);
                 if ( cmd == "true" ) {
-                    setPwrState( true );
+                    updateEMstat( EM_ON );
                 } else {
-                    setPwrState( false );
+                    updateEMstat( EM_OFF );
                 }
-                if ( m_setPwrState ) m_setPwrState( stat.EM_On );
+                if ( m_signalEmState ) m_signalEmState( stat.EM_stat );
             }
 
             m_server->send ( 200, "application/xml", "<Device2EM></Device2EM>"  );
@@ -276,11 +276,11 @@ void uSEMP::handlePowerCtl()
             if ( idx >= 0) {
                 String cmd =  p1Val.substring(idx+4,idx+4+4);
                 if ( cmd == "true" ) {
-                    setPwrState( true );
+                    updateEMstat( EM_ON );
                 } else {
-                    setPwrState( false );
+                    updateEMstat( EM_OFF );
                 }
-                if ( m_setPwrState ) m_setPwrState( stat.EM_On );
+                if ( m_signalEmState ) m_signalEmState( stat.EM_stat );
             }
             m_server->send ( 200, "application/xml", "<Device2EM></Device2EM>"  );
             return;
@@ -355,11 +355,17 @@ int uSEMP::makeDeviceStatusRequest(char *o_buf)
     return snprintf_P(o_buf, size_deviceStatus, deviceStatus_tmpl
             , info.deviceID()
             , /*EMSignalsAccepted*/ "true"
-            , /*Status*/ stat.EM_On ? "On" : "Off"
-                    , /* Power*/ stat.EM_On ? stat.m_averagePwr : 0
-                            , /* MinPower */ stat.m_minPwr
-                            , /* MaxPower */ stat.m_maxPwr
-                            , /* Timestamp */ 0 );
+            , /*Status*/ (stat.EM_stat == EM_OFFLINE) ? "Offline" : ((stat.EM_stat == EM_ON) ? "On" : "Off")
+            , /* Power*/ (stat.EM_stat != EM_OFF) ? stat.m_averagePwr : 0
+            , /* MinPower */ stat.m_minPwr
+            , /* MaxPower */ stat.m_maxPwr
+            , /* Timestamp */ 0 );
+}
+
+void uSEMP::updateEMstat(EM_state_t nstat)
+{
+    stat.EM_stat = nstat;
+    setEmState(stat.EM_stat);
 }
 
 PlanningData *uSEMP::getActivePlan()
@@ -367,8 +373,8 @@ PlanningData *uSEMP::getActivePlan()
 
     unsigned _now = getTime();
     if ( stat.m_activePlan )  {
-        if ( !stat.m_activePlan->updateEnergy(_now, pwrState() ) )  {
-            setPwrState( false );
+        if ( !stat.m_activePlan->updateEnergy(_now, getEmState() ) )  {
+            updateEMstat(EM_OFF);
             stat.m_activePlan = 0;
         }
     }
@@ -377,7 +383,7 @@ PlanningData *uSEMP::getActivePlan()
         PlanningData* pl_e = 0;
         for ( unsigned idx = 0; idx< NR_OF_REQUESTS; ++idx  ){
             PlanningData* pl = &m_plans[idx];
-            if ( pl->updateEnergy(_now, pwrState()  )) {
+            if ( pl->updateEnergy(_now, getEmState()  )) {
                 //if ( pl_e) DBG_TRACE("used plan %d  check %u vs %u\n", idx, pl_e->m_earliestStart, pl->m_earliestStart);
                 if ( !pl_e || (pl_e->m_earliestStart > pl->m_earliestStart) ) {
                     pl_e = pl;
@@ -404,7 +410,7 @@ int uSEMP::modifyPlan(unsigned i_plan, unsigned long i_now, unsigned i_req, unsi
     PlanningData* plan = &m_plans[usedPlan];
     plan->requestEnergy(i_now, i_req, i_opt, i_est, i_let, stat.m_maxConsumption);
     // if no active plan, then let t getActivePlan() determine the next active plan
-    if ( !stat.EM_On ) {
+    if ( !stat.EM_stat ) {
         stat.m_activePlan = 0;
     } // else the active Plan shouldn't be cancelled.  SEMP spec demands planning request must not overlap
     DBG_TRACE("modifyPlan uSEMP: %s   req:%u  opt: %u  %d\n", time2str(i_now), i_req, i_opt, usedPlan );
@@ -422,7 +428,7 @@ int uSEMP::modifyPlanTime(unsigned i_plan, unsigned long i_now, unsigned i_min, 
     PlanningData* plan = &m_plans[usedPlan];
     plan->requestTime(i_now, i_min, i_max, i_est, i_let, stat.m_maxConsumption);
     // if no active plan, then let t getActivePlan() determine the next active plan
-    if ( !stat.EM_On ) {
+    if ( !stat.EM_stat ) {
         stat.m_activePlan = 0;
     } // else the active Plan shouldn't be cancelled.  SEMP spec demands planning request must not overlap
     return usedPlan;
@@ -512,9 +518,9 @@ void uSEMP::updateEnergy(unsigned long i_now, int i_req, int i_optional, int i_p
                 , i_req,      stat.m_activePlan->m_requestedEnergy, stat.m_activePlan->m_minOnTime
                 , i_optional, stat.m_activePlan->m_optionalEnergy,  stat.m_activePlan->m_maxOnTime);
 
-        if (!stat.m_activePlan->updateEnergy(i_now, pwrState(), i_req, i_optional, i_prolong ))
+        if (!stat.m_activePlan->updateEnergy(i_now, getEmState(), i_req, i_optional, i_prolong ))
         {
-            setPwrState( false );
+            updateEMstat( EM_OFF );
             stat.m_activePlan = 0;
         }
     }
@@ -524,9 +530,11 @@ void uSEMP::updateEnergy(unsigned long i_now, int i_req, int i_optional, int i_p
 void uSEMP::updateTime( unsigned long i_now )
 {
     if ( stat.m_activePlan ) {
-        if (!stat.m_activePlan->updateEnergy(i_now, pwrState(),0 ,0  ))
-        {
-            setPwrState( false );
+        if (!stat.m_activePlan->updateEnergy(i_now, getEmState() == EM_ON,0 ,0  ))
+        {   // only if this Device in EM_ON  /
+            // EM_OFF and EM_OFFLINE don't update requested Time
+            updateEMstat( EM_OFF );
+            if (m_signalEndOfPlan) m_signalEndOfPlan();
             stat.m_activePlan = 0;
         }
     }
@@ -546,12 +554,12 @@ int uSEMP::makePlanningRequests(unsigned long i_now, char* o_buf)
     {
         PlanningData* pl = &m_plans[idx];
         if( pl->used() ) {
-            if (pl->updateEnergy(i_now, pwrState())) {
+            if (pl->updateEnergy(i_now, getEmState())) {
                 wp += makeRequestFromPlan( i_now, pl, &o_buf[wp]);
             } else {
                 // just passed... maybe we should switch OFF?
                 if ( pl == stat.m_activePlan ) {
-                    setPwrState( false );
+                    updateEMstat( EM_OFF );
                     stat.m_activePlan = 0;
                 }
             }
