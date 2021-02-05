@@ -61,19 +61,28 @@ uSEMP* g_semp;
 void setup() {
   Serial.begin(SERIAL_BAUDRATE);
 
+   // SEMP init
   snprintf( ChipID, sizeof(ChipID), "%08x", ESP.getChipId() );
   snprintf( udn_uuid, sizeof(udn_uuid), "f1d67bee-2a4e-d608-ffff-aefe%08x", ESP.getChipId() );
   snprintf( DeviceID , sizeof(DeviceID), "F-30021968-0000%08x-00", ESP.getChipId() );
   snprintf( DeviceSerial , sizeof(DeviceSerial), "%04d", DEVICE_SERIAL_NR );
   Serial.printf("ChipID: %s\n", ChipID);
   
-
-  g_semp = new uSEMP( udn_uuid, DeviceID, DeviceName, DeviceSerial, "EVCharger", Vendor, MAX_CONSUMPTION, getTime, setPwr, &semp_server, SEMP_PORT );
+  g_semp = new uSEMP( udn_uuid, DeviceID, DEVICE_NAME, DeviceSerial, uSEMP::devTypeStr( 5 /* EVCharger*/ ), Vendor, MAX_CONSUMPTION, &semp_server, SEMP_PORT );
   Serial.printf("uuid  : %s\n", g_semp->udn_uuid());
   Serial.printf("DevID : %s\n", g_semp->deviceID());
+
+
   
   setupWIFI();
   setupPOW(); 
+  g_semp->setCallbacks( getTime
+            ,([]( EM_state_t ems) {  /*  EM state update from uSEMP*/  })
+            ,([]( ) { /* end of Plan*/  }));
+
+
+  
+  
   setupTimeClk();
   setupIO();
   setupWebSrv();

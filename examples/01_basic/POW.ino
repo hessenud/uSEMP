@@ -35,7 +35,7 @@ void setupPOW() {
     relayState = LOW;
     
     g_semp->startService( );
-    g_semp->setPwrState( relayState );
+    g_semp->setEmState( relayState ? EM_ON : EM_OFF );
     pwrIdx = 0;
     averagePwr = 0;
     _minPwr=minPwr=_maxPwr=maxPwr=minPwrIdx=maxPwrIdx = 0;
@@ -203,7 +203,7 @@ void loopPOW() {
         static unsigned hlw_vsim[] = {229, 230,231,235,232,228,227 };
            
 
-        apparentPwr = activePwr =  g_semp->pwrState() ? hlw_sim[(sim_rd)%DIM(hlw_sim)] : 0;
+        apparentPwr = activePwr =  relayState ? hlw_sim[(sim_rd)%DIM(hlw_sim)] : 0;
         voltage =  hlw_vsim[(sim_rd)%DIM(hlw_vsim)];
         current = (double)activePwr / (double)voltage;
         ++sim_rd;
