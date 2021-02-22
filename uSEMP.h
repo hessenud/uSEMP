@@ -6,7 +6,7 @@
 // ensure this library description is only included once
 #ifndef USEMP_H
 #define USEMP_H
-//#define SEMP_DEBUG
+#define _SEMP_DEBUG
 #ifdef SEMP_DEBUG
 # define DBG_TRACE(...) Serial.printf(__VA_ARGS__)
 # define DBG_TRACE_P(...) Serial.printf_P(__VA_ARGS__)
@@ -234,7 +234,7 @@ class DeviceStatus {
 public:
 
     const char* m_Id;
-    bool m_acceptEMS;
+    bool m_acceptEMSignal;
     EM_state_t EM_stat;
 
     unsigned m_maxConsumption;
@@ -249,7 +249,7 @@ public:
     DeviceStatus( const char* i_id, bool i_acceptEMS, unsigned i_maxConsumption )
     {
         m_Id = i_id;
-        m_acceptEMS = i_acceptEMS;
+        m_acceptEMSignal = i_acceptEMS;
         m_averagePwr = 0;
         m_minPwr = 0;
         m_maxPwr = 0;
@@ -306,10 +306,8 @@ public:
 
     DeviceStatus  		stat;
     DeviceInfo	  		info;
-    WebServer_T* 	m_server;
+    WebServer_T* 	    m_server;
     unsigned 			m_port;
-
-
     char* 				m_schemaS;
 
     unsigned size_devInfo;
@@ -414,8 +412,9 @@ public:
     /**
      *  update runtime for timebased requests / timeframes
      *  @param  i_now       timestamp in seconds ( e.g. unix time seconds since 1970... )
+     *  @param  i_pwrOn     true if relay is on
      */
-    void updateTime( unsigned long i_now );
+    void updateTime( unsigned long i_now, bool i_pwrOn );
 
     /**
      * write a readable dump of all plans to o_wp
@@ -451,14 +450,22 @@ public:
      */
     void deleteAllPlans();
 
+    /**
+     * @param  true -> EM suggestions are accepted
+     */
+    void acceptEMSignal( bool i_accept ) { stat.m_acceptEMSignal = i_accept; }
 
-    void setEmState( EM_state_t i_state ) {
-        stat.EM_stat = i_state;
-        DBG_TRACE("setPwrState(%s)\n",(stat.EM_stat ? "ON":"OFF" ));
-        if(m_signalEmState) m_signalEmState( stat.EM_stat );
-    }
 
-    bool getEmState() { return stat.EM_stat; }
+    /**
+     * @param i_state of Device  ON,OFF, OFFLINE
+     */
+    void setEmState( EM_state_t i_state ){  stat.EM_stat = i_state; }
+
+    /**
+     * @return state of Device  ON,OFF, OFFLINE
+     * Offline = Device not communicating with gateway this is not really used (yet)
+     */
+    EM_state_t getEmState() { return stat.EM_stat; }
 
 
     void setPwr( unsigned i_pwr, unsigned i_min, unsigned i_max) {
@@ -473,7 +480,11 @@ private:
     int	makeDeviceStatusRequest(char* o_wp);
     int	makeRequestFromPlan( unsigned long i_now, PlanningData* i_plan, char *o_wp);//
     int makePlanningRequests( unsigned long i_now, char* o_wp);//
-    void updateEMstat(EM_state_t nstat);
+    void updateEMstat( EM_state_t i_state ) {
+         stat.EM_stat = i_state;
+         DBG_TRACE("setPwrState(%s)\n",(stat.EM_stat==EM_OFFLINE ? "OFFLINE" : (stat.EM_stat==EM_ON? "ON":"OFF") ));
+         if(m_signalEmState) m_signalEmState( stat.EM_stat );
+     }
 };
 
 #endif

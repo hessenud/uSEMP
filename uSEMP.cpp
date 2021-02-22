@@ -280,7 +280,6 @@ void uSEMP::handlePowerCtl()
                 } else {
                     updateEMstat( EM_OFF );
                 }
-                if ( m_signalEmState ) m_signalEmState( stat.EM_stat );
             }
             m_server->send ( 200, "application/xml", "<Device2EM></Device2EM>"  );
             return;
@@ -308,7 +307,7 @@ void uSEMP::startService( ) {
         wp += snprintf_P(&m_respBuffer[wp], m_sizeRespBuffer-wp, "%s", resp_header );
         wp += snprintf_P(&m_respBuffer[wp], m_sizeRespBuffer-wp, deviceInfo_tmpl, info.deviceID(), info.deviceName()
                 , info.deviceSerial(), info.deviceType(), info.vendor()
-                , stat.m_maxPwr );
+                , stat.m_maxConsumption );
         wp += makeDeviceStatusRequest(&m_respBuffer[wp]);
         wp += makePlanningRequests( getTime(), &m_respBuffer[wp]);
         wp += snprintf_P(&m_respBuffer[wp], m_sizeRespBuffer-wp, "%s", resp_footer );
@@ -354,18 +353,12 @@ int uSEMP::makeDeviceStatusRequest(char *o_buf)
 {
     return snprintf_P(o_buf, size_deviceStatus, deviceStatus_tmpl
             , info.deviceID()
-            , /*EMSignalsAccepted*/ "true"
+            , /*EMSignalsAccepted*/ stat.m_acceptEMSignal ? "true" : "false"
             , /*Status*/ (stat.EM_stat == EM_OFFLINE) ? "Offline" : ((stat.EM_stat == EM_ON) ? "On" : "Off")
-            , /* Power*/ (stat.EM_stat != EM_OFF) ? stat.m_averagePwr : 0
+            , /* Power*/     stat.m_averagePwr
             , /* MinPower */ stat.m_minPwr
             , /* MaxPower */ stat.m_maxPwr
             , /* Timestamp */ 0 );
-}
-
-void uSEMP::updateEMstat(EM_state_t nstat)
-{
-    stat.EM_stat = nstat;
-    setEmState(stat.EM_stat);
 }
 
 PlanningData *uSEMP::getActivePlan()
@@ -373,9 +366,9 @@ PlanningData *uSEMP::getActivePlan()
 
     unsigned _now = getTime();
     if ( stat.m_activePlan )  {
-        if ( !stat.m_activePlan->updateEnergy(_now, getEmState() ) )  {
-            updateEMstat(EM_OFF);
+        if ( !stat.m_activePlan->updateEnergy(_now, getEmState()==EM_ON  ) )  {
             stat.m_activePlan = 0;
+            updateEMstat(EM_OFF);
         }
     }
 
@@ -383,7 +376,7 @@ PlanningData *uSEMP::getActivePlan()
         PlanningData* pl_e = 0;
         for ( unsigned idx = 0; idx< NR_OF_REQUESTS; ++idx  ){
             PlanningData* pl = &m_plans[idx];
-            if ( pl->updateEnergy(_now, getEmState()  )) {
+            if ( pl->updateEnergy(_now, false  )) { // getEmState()==EM_ON  )) {
                 //if ( pl_e) DBG_TRACE("used plan %d  check %u vs %u\n", idx, pl_e->m_earliestStart, pl->m_earliestStart);
                 if ( !pl_e || (pl_e->m_earliestStart > pl->m_earliestStart) ) {
                     pl_e = pl;
@@ -518,7 +511,7 @@ void uSEMP::updateEnergy(unsigned long i_now, int i_req, int i_optional, int i_p
                 , i_req,      stat.m_activePlan->m_requestedEnergy, stat.m_activePlan->m_minOnTime
                 , i_optional, stat.m_activePlan->m_optionalEnergy,  stat.m_activePlan->m_maxOnTime);
 
-        if (!stat.m_activePlan->updateEnergy(i_now, getEmState(), i_req, i_optional, i_prolong ))
+        if (!stat.m_activePlan->updateEnergy(i_now, getEmState()==EM_ON , i_req, i_optional, i_prolong ))
         {
             updateEMstat( EM_OFF );
             stat.m_activePlan = 0;
@@ -527,10 +520,10 @@ void uSEMP::updateEnergy(unsigned long i_now, int i_req, int i_optional, int i_p
 
 }
 
-void uSEMP::updateTime( unsigned long i_now )
+void uSEMP::updateTime( unsigned long i_now, bool i_pwrOn )
 {
     if ( stat.m_activePlan ) {
-        if (!stat.m_activePlan->updateEnergy(i_now, getEmState() == EM_ON,0 ,0  ))
+        if (!stat.m_activePlan->updateEnergy(i_now, i_pwrOn, 0, 0 ))
         {   // only if this Device in EM_ON  /
             // EM_OFF and EM_OFFLINE don't update requested Time
             updateEMstat( EM_OFF );
@@ -554,7 +547,7 @@ int uSEMP::makePlanningRequests(unsigned long i_now, char* o_buf)
     {
         PlanningData* pl = &m_plans[idx];
         if( pl->used() ) {
-            if (pl->updateEnergy(i_now, getEmState())) {
+            if (pl->updateEnergy(i_now, getEmState()==EM_ON )) {
                 wp += makeRequestFromPlan( i_now, pl, &o_buf[wp]);
             } else {
                 // just passed... maybe we should switch OFF?
@@ -567,9 +560,6 @@ int uSEMP::makePlanningRequests(unsigned long i_now, char* o_buf)
     }
     return wp;
 }
-
-
-
 
 bool PlanningData::updateEnergy(unsigned long i_now, bool i_pwrOn, int i_req, int i_opt, int i_prolong )
 {
@@ -587,7 +577,6 @@ bool PlanningData::updateEnergy(unsigned long i_now, bool i_pwrOn, int i_req, in
                 // min and max OnTime is only counted if Power is ON
                 if ( m_minOnTime > dt) m_minOnTime -= dt; else m_minOnTime = 0;
                 if ( m_maxOnTime > dt) m_maxOnTime -= dt; else m_maxOnTime = 0;
-
             }
         } else {
             if( m_maxPwr ) {
@@ -599,7 +588,8 @@ bool PlanningData::updateEnergy(unsigned long i_now, bool i_pwrOn, int i_req, in
         }
         m_latestEnd += i_prolong;
         int let = m_latestEnd - i_now;
-        DBG_TRACE("------> let: %s\n", uSEMP::time2str(let));
+        DBG_TRACE("latest end: %s ------> let: %s  %s  prolong: %d\n", uSEMP::time2str(m_latestEnd), uSEMP::time2str(let),
+                i_pwrOn ? "ON" : "OFF", i_prolong);
         if (let <0) {
             let =0;
         }
