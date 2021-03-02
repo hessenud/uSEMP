@@ -526,9 +526,7 @@ void uSEMP::updateTime( unsigned long i_now, bool i_pwrOn )
         if (!stat.m_activePlan->updateEnergy(i_now, i_pwrOn, 0, 0 ))
         {   // only if this Device in EM_ON  /
             // EM_OFF and EM_OFFLINE don't update requested Time
-            updateEMstat( EM_OFF );
-            if (m_signalEndOfPlan) m_signalEndOfPlan();
-            stat.m_activePlan = 0;
+            endOfPlan();
         }
     }
 }
@@ -537,6 +535,12 @@ void uSEMP::loop() {
     m_server->handleClient();
 }
 
+void uSEMP::endOfPlan()
+{
+    stat.m_activePlan = 0;
+    updateEMstat(EM_OFF);
+    if (m_signalEndOfPlan) m_signalEndOfPlan();
+}
 
 int uSEMP::makePlanningRequests(unsigned long i_now, char* o_buf)
 {
@@ -552,8 +556,7 @@ int uSEMP::makePlanningRequests(unsigned long i_now, char* o_buf)
             } else {
                 // just passed... maybe we should switch OFF?
                 if ( pl == stat.m_activePlan ) {
-                    updateEMstat( EM_OFF );
-                    stat.m_activePlan = 0;
+                    endOfPlan();
                 }
             }
         }

@@ -455,11 +455,17 @@ public:
      */
     void acceptEMSignal( bool i_accept ) { stat.m_acceptEMSignal = i_accept; }
 
-
     /**
-     * @param i_state of Device  ON,OFF, OFFLINE
+     * * set state of device  ON, OFF or OFFLINE
+     * @param i_state of Device  EM_ON,EM_OFF, OFFLINE
      */
     void setEmState( EM_state_t i_state ){  stat.EM_stat = i_state; }
+
+    /**
+     * set state of device  ON or OFF
+     * @param i_state of Device  true == EM_ON, false == EM_OFF
+     */
+    void setEmState( bool i_state ){  stat.EM_stat = i_state ? EM_ON: EM_OFF; }
 
     /**
      * @return state of Device  ON,OFF, OFFLINE
@@ -485,6 +491,8 @@ private:
          DBG_TRACE("setPwrState(%s)\n",(stat.EM_stat==EM_OFFLINE ? "OFFLINE" : (stat.EM_stat==EM_ON? "ON":"OFF") ));
          if(m_signalEmState) m_signalEmState( stat.EM_stat );
      }
+
+    void endOfPlan();
 };
 
 #endif
