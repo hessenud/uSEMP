@@ -367,8 +367,7 @@ PlanningData *uSEMP::getActivePlan()
     unsigned _now = getTime();
     if ( stat.m_activePlan )  {
         if ( !stat.m_activePlan->updateEnergy(_now, getEmState()==EM_ON  ) )  {
-            stat.m_activePlan = 0;
-            updateEMstat(EM_OFF);
+            endOfPlan();
         }
     }
 
@@ -513,8 +512,7 @@ void uSEMP::updateEnergy(unsigned long i_now, int i_req, int i_optional, int i_p
 
         if (!stat.m_activePlan->updateEnergy(i_now, getEmState()==EM_ON , i_req, i_optional, i_prolong ))
         {
-            updateEMstat( EM_OFF );
-            stat.m_activePlan = 0;
+            endOfPlan();
         }
     }
 
