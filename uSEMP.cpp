@@ -576,6 +576,11 @@ bool PlanningData::updateEnergy(unsigned long i_now, bool i_pwrOn, int i_req, in
         if( newOpt>0)  m_optionalEnergy  = newOpt;  else m_optionalEnergy  = 0;
 
         if(m_timeBased) {
+            // prolong timeframe if advised
+            if ( i_prolong ) {
+                m_minOnTime += i_prolong;
+                m_maxOnTime += i_prolong;
+            }
             if ( i_pwrOn ) { // that means energy is flowing
                 // min and max OnTime is only counted if Power is ON
                 if ( m_minOnTime > dt) m_minOnTime -= dt; else m_minOnTime = 0;
