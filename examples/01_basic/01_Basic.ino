@@ -68,7 +68,7 @@ void setup() {
   snprintf( DeviceSerial , sizeof(DeviceSerial), "%04d", DEVICE_SERIAL_NR );
   Serial.printf("ChipID: %s\n", ChipID);
   
-  g_semp = new uSEMP( udn_uuid, DeviceID, DEVICE_NAME, DeviceSerial, uSEMP::devTypeStr( 5 /* EVCharger*/ ), Vendor, MAX_CONSUMPTION, &semp_server, SEMP_PORT );
+  g_semp = new uSEMP( udn_uuid, DeviceID, DEVICE_NAME, DeviceSerial, uSEMP::devTypeStr( 5 /* EVCharger*/ ), Vendor, MAX_CONSUMPTION, true, true, &semp_server, SEMP_PORT );
   Serial.printf("uuid  : %s\n", g_semp->udn_uuid());
   Serial.printf("DevID : %s\n", g_semp->deviceID());
 

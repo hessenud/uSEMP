@@ -205,12 +205,21 @@ class DeviceInfo {
     const char* DeviceName;
     const char* DeviceSerial;
     const char* Vendor;
+    unsigned    MaxConsumption;
+    bool        Interruptible;
+    bool        AcceptOptional;
+    bool        AbsoluteTimeStamps;
+
 
 public:
     DeviceInfo( const char* i_udn_uuid,const char* i_deviceID
             ,const char* i_deviceName, const char* i_deviceType
-            , const char* i_deviceSerial
-            ,const char* i_vendor )
+            ,const char* i_deviceSerial
+            ,const char* i_vendor
+            ,unsigned i_maxConsumption
+            ,bool i_interruptible=true
+            ,bool i_acceptOptional=true
+            ,bool i_absoluteTimeStamps=false )
     {
         Udn_uuid = i_udn_uuid;
         DeviceID = i_deviceID;
@@ -218,14 +227,22 @@ public:
         DeviceName = i_deviceName;
         DeviceType = i_deviceType;
         Vendor = i_vendor;
+        MaxConsumption = i_maxConsumption;
+        Interruptible = i_interruptible;
+        AcceptOptional = i_acceptOptional;
+        AbsoluteTimeStamps = i_absoluteTimeStamps;
     }
 
-    const char*& udn_uuid()      { return Udn_uuid; };
-    const char*& deviceID()      { return DeviceID;}
-    const char*& deviceName()    { return DeviceName;}
-    const char*& deviceType()    { return DeviceType;}
-    const char*& deviceSerial()  { return DeviceSerial;}
-    const char*& vendor()        { return Vendor;};
+    const char* udn_uuid()      const { return Udn_uuid; };
+    const char* deviceID()      const { return DeviceID;}
+    const char* deviceName()    const { return DeviceName;}
+    const char* deviceType()    const { return DeviceType;}
+    const char* deviceSerial()  const { return DeviceSerial;}
+    const char* vendor()        const { return Vendor;}
+    unsigned    maxConsumption() const { return MaxConsumption;};
+    bool        interruptible() const { return Interruptible; }
+    bool        acceptOptional()    const { return AcceptOptional; }
+    bool        absoluteTimeStamps()    const { return AbsoluteTimeStamps; }
 
     //friend class uSEMP;
 };
@@ -237,7 +254,6 @@ public:
     bool m_acceptEMSignal;
     EM_state_t EM_stat;
 
-    unsigned m_maxConsumption;
     unsigned m_averagePwr;
     unsigned m_minPwr;
     unsigned m_maxPwr;
@@ -246,7 +262,7 @@ public:
 
 public:
 
-    DeviceStatus( const char* i_id, bool i_acceptEMS, unsigned i_maxConsumption )
+    DeviceStatus( const char* i_id, bool i_acceptEMS )
     {
         m_Id = i_id;
         m_acceptEMSignal = i_acceptEMS;
@@ -254,7 +270,6 @@ public:
         m_minPwr = 0;
         m_maxPwr = 0;
         m_activePlan = 0;
-        m_maxConsumption = i_maxConsumption;
         EM_stat = EM_OFFLINE;
     }
 
@@ -326,6 +341,7 @@ public:
 
     uSEMP( const char* i_udn_uuid,const char* i_deviceID, const char* i_deviceName, const char* i_deviceType
             , const char* i_deviceSerial, const char* i_vendor, unsigned i_maxConsumption
+            , bool i_interruptible, bool i_acceptOptional
             ,WebServer_T* i_server, unsigned i_port  );
 
     const char* makeSsdpScheme( ssdp_cfg* i_ssdpcfg);
@@ -340,12 +356,12 @@ public:
     void startService( );
     void loop();
 
-    const char*& udn_uuid()      { return info.udn_uuid(); };
-    const char*& deviceID()      { return info.deviceID();}
-    const char*& deviceName()    { return info.deviceName();}
-    const char*& deviceType()    { return info.deviceType();}
-    const char*& deviceSerial()  { return info.deviceSerial();}
-    const char*& vendor()        { return info.vendor();};
+    const char* udn_uuid()      const { return info.udn_uuid(); };
+    const char* deviceID()      const { return info.deviceID();}
+    const char* deviceName()    const { return info.deviceName();}
+    const char* deviceType()    const { return info.deviceType();}
+    const char* deviceSerial()  const { return info.deviceSerial();}
+    const char* vendor()        const { return info.vendor();};
 
     static const char* time2str( unsigned long theTime, unsigned i_fmt=0 );
     static const char* devTypeStr( unsigned i_type);

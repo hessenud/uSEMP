@@ -88,11 +88,11 @@ const char* uSEMP::deviceInfo_tmpl PROGMEM =
         "       <Method>Measurement</Method>\r\n"
         "     </CurrentPower>\r\n"
         "     <Interruptions>\r\n"
-        "       <InterruptionsAllowed>true</InterruptionsAllowed>\r\n"
+        "       <InterruptionsAllowed>%s</InterruptionsAllowed>\r\n"
         "     </Interruptions>\r\n"
-        "     <Timestamps><AbsoluteTimestamps>false</AbsoluteTimestamps></Timestamps>\r\n"
+        "     <Timestamps><AbsoluteTimestamps>%s</AbsoluteTimestamps></Timestamps>\r\n"
         "     <Requests>\r\n"
-        "       <OptionalEnergy>true</OptionalEnergy>\r\n"
+        "       <OptionalEnergy>%s</OptionalEnergy>\r\n"
         "     </Requests>\r\n"
         "   </Capabilities>\r\n"
         " </DeviceInfo>\r\n";
@@ -142,9 +142,12 @@ const char* uSEMP::time2str( unsigned long theTime, unsigned i_fmt){
 
 
 uSEMP::uSEMP( const char* i_udn_uuid,const char* i_deviceID, const char* i_deviceName
-        , const char* i_deviceSerial, const char* i_deviceType, const char* i_vendor, unsigned i_maxConsumption, ESP8266WebServer* i_server, unsigned i_port  )
-: stat( i_deviceID, true, i_maxConsumption )
-,info( i_udn_uuid, i_deviceID, i_deviceName, i_deviceSerial, i_deviceType, i_vendor)
+        , const char* i_deviceSerial, const char* i_deviceType, const char* i_vendor, unsigned i_maxConsumption
+        , bool i_interruptible, bool i_acceptOptional
+        , ESP8266WebServer* i_server, unsigned i_port  )
+: stat( i_deviceID, true )
+,info( i_udn_uuid, i_deviceID, i_deviceName, i_deviceSerial, i_deviceType, i_vendor, i_maxConsumption
+        , i_interruptible, i_acceptOptional )
 {
     // initialize this instance's variables
     get__time = 0;
@@ -152,7 +155,7 @@ uSEMP::uSEMP( const char* i_udn_uuid,const char* i_deviceID, const char* i_devic
     m_server = i_server;
     m_port = i_port;
     m_schemaS = 0;
-    size_devInfo            = strlen(deviceInfo_tmpl) + strlen(info.deviceID()) + strlen(info.deviceName()) + strlen(info.deviceSerial() + 3);
+    size_devInfo            = strlen(deviceInfo_tmpl) + strlen(info.deviceID()) + strlen(info.deviceName()) + strlen(info.deviceSerial() + 5*3 );
     size_deviceStatus	    = strlen(deviceStatus_tmpl) + strlen(info.deviceID()) + 12*32;
     size_planningRequest	= strlen(planningRequest_tmpl) + strlen(info.deviceID()) + 7*8;
     size_SempRequest	= size_devInfo + size_deviceStatus + size_planningRequest + strlen(resp_header)+strlen(resp_footer);
@@ -307,7 +310,7 @@ void uSEMP::startService( ) {
         wp += snprintf_P(&m_respBuffer[wp], m_sizeRespBuffer-wp, "%s", resp_header );
         wp += snprintf_P(&m_respBuffer[wp], m_sizeRespBuffer-wp, deviceInfo_tmpl, info.deviceID(), info.deviceName()
                 , info.deviceSerial(), info.deviceType(), info.vendor()
-                , stat.m_maxConsumption );
+                , info.maxConsumption(), info.interruptible(), info.absoluteTimeStamps(), info.acceptOptional() );
         wp += makeDeviceStatusRequest(&m_respBuffer[wp]);
         wp += makePlanningRequests( getTime(), &m_respBuffer[wp]);
         wp += snprintf_P(&m_respBuffer[wp], m_sizeRespBuffer-wp, "%s", resp_footer );
@@ -319,7 +322,8 @@ void uSEMP::startService( ) {
         unsigned wp = 0;
         wp += snprintf_P(&m_respBuffer[wp], m_sizeRespBuffer-wp, "%s", resp_header );
         wp += snprintf_P(&m_respBuffer[wp], m_sizeRespBuffer-wp, deviceInfo_tmpl, info.deviceID(), info.deviceName()
-                , info.deviceSerial(), info.deviceType(),  info.vendor(), stat.m_maxPwr );
+                , info.deviceSerial(), info.deviceType(),  info.vendor(), info.maxConsumption(), info.interruptible()
+                , info.absoluteTimeStamps(), info.acceptOptional() );
         wp += snprintf_P(&m_respBuffer[wp], m_sizeRespBuffer-wp, "%s",resp_footer );
 
         m_server->send ( 200, "application/xml", m_respBuffer );
@@ -400,7 +404,7 @@ int uSEMP::modifyPlan(unsigned i_plan, unsigned long i_now, unsigned i_req, unsi
     DBG_TRACE("modifyPlan uSEMP: %s   req:%u  opt: %u\n", time2str(i_now), i_req, i_opt);
 
     PlanningData* plan = &m_plans[usedPlan];
-    plan->requestEnergy(i_now, i_req, i_opt, i_est, i_let, stat.m_maxConsumption);
+    plan->requestEnergy(i_now, i_req, i_opt, i_est, i_let, info.maxConsumption());
     // if no active plan, then let t getActivePlan() determine the next active plan
     if ( !stat.EM_stat ) {
         stat.m_activePlan = 0;
@@ -418,7 +422,7 @@ int uSEMP::modifyPlanTime(unsigned i_plan, unsigned long i_now, unsigned i_min, 
     int usedPlan = i_plan < NR_OF_REQUESTS ? int(i_plan) : -1;
 
     PlanningData* plan = &m_plans[usedPlan];
-    plan->requestTime(i_now, i_min, i_max, i_est, i_let, stat.m_maxConsumption);
+    plan->requestTime(i_now, i_min, i_max, i_est, i_let, info.maxConsumption());
     // if no active plan, then let t getActivePlan() determine the next active plan
     if ( !stat.EM_stat ) {
         stat.m_activePlan = 0;
