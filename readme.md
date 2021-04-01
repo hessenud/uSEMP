@@ -25,11 +25,17 @@ Dependencies
  - uHelper:	https://github.com/hessenud/uHelper.git		- some helper components
 
 
-
+***NB:*** after fooling around with this library i've gained a better idea what i really want and need from a SEMP
+Library. That means I will completely overhaul this library and make a new version. This version will be interface incompatible but with clearer separation responsibilities and will be more re-usable outside Arduino...
+	
+	
 ---
 
 Usage
 ==============
+
+	
+
 After this library is installed, you just have to start the Arduino application.
 You may see a few warning messages as it's built.
 
@@ -44,13 +50,19 @@ The Library lets you create a SEMP Device with it's own EM Gateway
 
     uSEMP( const char* i_udn_uuid,const char* i_deviceID, const char* i_deviceName, const char* i_deviceType
 			, const char* i_seviceSerial, const char* i_vendor, unsigned i_maxConsumption
-			, unsigned long (*i_getTime)(), void (*setPwr)( bool i_state ) i_getTime)(), ESP8266WebServer* i_server, unsigned i_port );
+			, bool i_interruptible=true, bool i_acceptOptional=true
+            , bool i_absoluteTimeStamps=false, ESP8266WebServer* i_server, unsigned i_port );
+The constructor needs a pointer to a webserver and its port used for serving SEMP requests
 	
     uSEMP* g_semp = new uSEMP(...);
-    
-The Constructor requires a callback to a "time()" function to get access to the device's timebase. This is needed for generating planning requests.
-A second callback is feedback of EM Control to the device application "setPwr" and a pointer to the webserver and its port used for serving SEMP requests
 
+    void setCallbacks( unsigned long (*i_getTime)()
+            , void (*i_sigEmS)( EM_state_t )
+            , void (*i_sigEoP)( ) ) 
+The SEMP object requires a few callbacks:
+* a "time()" function to get access to the device's timebase. This is needed for generating planning requests.
+* a "signalEMState" callback for feedback of EM Control to the device application "setPwr" 
+* a "end-Of-Plan" callback so signal the end of an active plan
 
 To make itself known to the Energy Manager (EM) the device uses SSDP. The Arduino ESP8266SSDP Library is somewhat limited but still usable,
 as long as you overwrite the Schema. The uSEMP class provides a _makeSsdpScheme()_ method. I haven't found a satisfying way to put that 
@@ -120,6 +132,6 @@ An energy plan is updated using updateEnergy
 
 ToDo: 
 -----------------------------		
-* PlanningData is only focused on energy. Sometimes it's more adequate to plan with times only because the actual energy consumption is not known. 
-(washing machine, dryer etc..)
-* seperate energy/time requests from planing request to the EM     
+* seperate energy/time requests from planing request to the EM  
+* better separation/organization of responsibilities => new API
+* there is too much application in this library (update Energy..) limiting an application this way   
