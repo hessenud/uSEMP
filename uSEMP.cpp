@@ -155,7 +155,7 @@ uSEMP::uSEMP( const char* i_udn_uuid,const char* i_deviceID, const char* i_devic
     m_server = i_server;
     m_port = i_port;
     m_schemaS = 0;
-    size_devInfo            = strlen(deviceInfo_tmpl) + strlen(info.deviceID()) + strlen(info.deviceName()) + strlen(info.deviceSerial() + 5*3 );
+    size_devInfo            = strlen(deviceInfo_tmpl) + strlen(info.deviceID()) + strlen(info.deviceName()) + strlen(info.deviceSerial() + 5*6 );
     size_deviceStatus	    = strlen(deviceStatus_tmpl) + strlen(info.deviceID()) + 12*32;
     size_planningRequest	= strlen(planningRequest_tmpl) + strlen(info.deviceID()) + 7*8;
     size_SempRequest	= size_devInfo + size_deviceStatus + size_planningRequest + strlen(resp_header)+strlen(resp_footer);
@@ -311,7 +311,7 @@ void uSEMP::startService( ) {
         wp += snprintf_P(&m_respBuffer[wp], m_sizeRespBuffer-wp, deviceInfo_tmpl, info.deviceID(), info.deviceName()
                 , info.deviceSerial(), info.deviceType(), info.vendor()
                 , info.maxConsumption(), info.interruptible(), info.absoluteTimeStamps(), info.acceptOptional() );
-        wp += makeDeviceStatusRequest(&m_respBuffer[wp]);
+            wp += makeDeviceStatusRequest(&m_respBuffer[wp]);
         wp += makePlanningRequests( getTime(), &m_respBuffer[wp]);
         wp += snprintf_P(&m_respBuffer[wp], m_sizeRespBuffer-wp, "%s", resp_footer );
 

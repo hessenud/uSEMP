@@ -233,6 +233,8 @@ public:
         AbsoluteTimeStamps = i_absoluteTimeStamps;
     }
 
+    const char* bool2str(bool b) const { return b ? "true" : "false"; }
+
     const char* udn_uuid()      const { return Udn_uuid; };
     const char* deviceID()      const { return DeviceID;}
     const char* deviceName()    const { return DeviceName;}
@@ -240,9 +242,9 @@ public:
     const char* deviceSerial()  const { return DeviceSerial;}
     const char* vendor()        const { return Vendor;}
     unsigned    maxConsumption() const { return MaxConsumption;};
-    bool        interruptible() const { return Interruptible; }
-    bool        acceptOptional()    const { return AcceptOptional; }
-    bool        absoluteTimeStamps()    const { return AbsoluteTimeStamps; }
+    const char* interruptible() const { return bool2str(Interruptible); }
+    const char* acceptOptional()    const { return bool2str(AcceptOptional); }
+    const char* absoluteTimeStamps()    const { return bool2str(AbsoluteTimeStamps); }
 
     //friend class uSEMP;
 };
