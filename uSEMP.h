@@ -343,7 +343,7 @@ public:
 
     uSEMP( const char* i_udn_uuid,const char* i_deviceID, const char* i_deviceName, const char* i_deviceType
             , const char* i_deviceSerial, const char* i_vendor, unsigned i_maxConsumption
-            , bool i_interruptible, bool i_acceptOptional
+            , bool i_interruptible, bool i_acceptOptional, bool i_tsAbsolute
             ,WebServer_T* i_server, unsigned i_port  );
 
     const char* makeSsdpScheme( ssdp_cfg* i_ssdpcfg);

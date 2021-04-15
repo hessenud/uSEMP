@@ -143,11 +143,11 @@ const char* uSEMP::time2str( unsigned long theTime, unsigned i_fmt){
 
 uSEMP::uSEMP( const char* i_udn_uuid,const char* i_deviceID, const char* i_deviceName
         , const char* i_deviceSerial, const char* i_deviceType, const char* i_vendor, unsigned i_maxConsumption
-        , bool i_interruptible, bool i_acceptOptional
+        , bool i_interruptible, bool i_acceptOptional, bool i_tsAbsolute
         , ESP8266WebServer* i_server, unsigned i_port  )
 : stat( i_deviceID, true )
 ,info( i_udn_uuid, i_deviceID, i_deviceName, i_deviceSerial, i_deviceType, i_vendor, i_maxConsumption
-        , i_interruptible, i_acceptOptional )
+        , i_interruptible, i_acceptOptional, i_tsAbsolute )
 {
     // initialize this instance's variables
     get__time = 0;
@@ -590,8 +590,8 @@ bool PlanningData::updateEnergy(unsigned long i_now, bool i_pwrOn, int i_req, in
             }
         } else {
             if( m_maxPwr ) {
-                m_minOnTime = Wh2Ws(m_requestedEnergy) / m_maxPwr;
-                m_maxOnTime = Wh2Ws(m_optionalEnergy)  / m_maxPwr;
+                m_minOnTime = Wh2Ws(m_requestedEnergy) / (m_maxPwr ? m_maxPwr : 1);
+                m_maxOnTime = Wh2Ws(m_optionalEnergy)  / (m_maxPwr ? m_maxPwr : 1);
             } else {
                 m_minOnTime = m_maxOnTime = 0;
             }
