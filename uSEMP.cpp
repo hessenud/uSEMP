@@ -24,8 +24,8 @@ const char* uSEMP::scheme_tmpl PROGMEM = "<?xml version=\"1.0\"?>\n"
         "   <UDN>uuid:%s</UDN>\n"
         "   <serviceList>\n"
         "     <service>\n"
-        "       <serviceType> urn:schemas-simple-energy-management-protocol:service:NULL:1:service:NULL:1 </serviceType>\n"
-        "       <serviceId>urn:schemas-simple-energy-management-protocol:serviceId:NULL:serviceId:NULL </serviceId>\n"
+        "       <serviceType>urn:schemas-simple-energy-management-protocol:service:NULL:1</serviceType>\n"
+        "       <serviceId>urn:schemas-simple-energy-management-protocol:serviceId:NULL</serviceId>\n"
         "       <SCPDURL>/XD/NULL.xml</SCPDURL>\n"
         "       <controlURL>/UD/?0</controlURL>\n"
         "       <eventSubURL></eventSubURL>\n"
@@ -41,6 +41,8 @@ const char* uSEMP::scheme_tmpl PROGMEM = "<?xml version=\"1.0\"?>\n"
         "     </semp:X_SEMPSERVICE>\n"
         " </device>\n"
         "</root>\n";
+//        "       <serviceType>urn:schemas-simple-energy-management-protocol:service:NULL:1:service:NULL:1</serviceType>\n"
+//   "       <serviceId>urn:schemas-simple-energy-management-protocol:serviceId:NULL:serviceId:NULL</serviceId>\n"
 
 
 const char* uSEMP::devTypeStr( unsigned i_type)
