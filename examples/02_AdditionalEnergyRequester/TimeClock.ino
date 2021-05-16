@@ -1,66 +1,5 @@
 //------------NTP---------------
-class CTimer; // forward
-class CTimer {
-  
-  unsigned long m_swTime;     //< switch time in minutes
-  bool          m_switchmode; //< true = on false = off
-  int*          m_channel;    //< switch number  
-  bool          m_hot;        //< time != swTime; hot<-true | when swTime is reached timer is executed and hot <- false
-  
-  CTimer*       m_next;  
-public:
-  unsigned long getSwTime() { return m_swTime; }
-  bool          hot() { return m_hot; }
-  CTimer*       next(){ return m_next; }
-  void          trigger();  
-  void          append(CTimer* i_tmt);
-  void          append_to(CTimer* i_list);
-  bool          check(unsigned long _time);
-  void rearm() {
-    m_hot = true;
-  }
-  
-};
 
-CTimer* g_Timerlist;
-void CTimer::append_to(CTimer* i_list)
-{
-  CTimer* wp= i_list;
-  if (wp){
-    while(  wp->next()) wp = wp->next();
-    wp->m_next = this;
-  }
-}
-
-void CTimer::append(CTimer* i_tmr)
-{
-  CTimer* wp= this;
-  while(  wp->m_next)  wp = wp->next();
-  wp->m_next = i_tmr;
-}
-
-
-void CTimer::trigger()
-{
-  *m_channel = m_switchmode;
-  m_hot = false;
-}
-
-
-bool CTimer::check(unsigned long _time) 
-{
-  if(m_swTime == _time) 
-  {
-    if ( m_hot  ) // hot an time reached
-    {
-      trigger(); 
-      return true;
-    } 
-  } else {
-    rearm();  
-  }
-  return false;
-}
 
 /********************************************************************
  * NTP Client
@@ -73,13 +12,6 @@ unsigned int localPort = 2390;      // local port to listen for UDP packets
 WiFiUDP udp;
 // send an NTP request to the time server at the given address
 
-void setupTimeClk()
-{
-  Serial.println("Starting NTP UDP port");
-  udp.begin(localPort);
-  Serial.print("Local port: ");
-  Serial.println(udp.localPort());
-}
 
 
 unsigned long g_localTime;
@@ -219,8 +151,6 @@ const char* getTimeStringS( unsigned long theTime )
 
 
 
-
-
 void loopTimeClk()
 {
   static unsigned long _last;
@@ -229,8 +159,32 @@ void loopTimeClk()
   if ( _last != _time ) {
     _last = _time;
     //Serial.printf("Timer-Tick: %s checking timers\n",  getTimeString( _time ));
-    for( CTimer* wp = g_Timerlist; wp; wp = wp->next() ) {
-      wp->check(_time);
-    }
+ 
   }
+}
+
+///---------------
+unsigned long daytime2unixtime(unsigned long i_daytime, unsigned long _now) {
+    unsigned long dayoffset = _now - (_now%( 86400L));
+    return dayoffset +  i_daytime;
+}
+
+void requestDailyPlan(bool)
+{
+    unsigned long _now = getTime();
+    // 6KWh in the night => get the Battery ful
+    Serial.printf("\n===============================\nrequest extra Energy\n==============================\n");
+       int modifyPlan(unsigned i_plan, unsigned long i_now, unsigned i_req, unsigned i_opt, unsigned i_est, unsigned i_let );
+
+    g_semp->modifyPlan(0, _now, 6000 /*6kWh*/, 0,   daytime2unixtime( 22 * 3600, _now) ,  daytime2unixtime( 86399L, _now ) );
+}
+
+///---------------
+void setupTimeClk()
+{
+  Serial.println("Starting NTP UDP port");
+  udp.begin(localPort);
+  Serial.print("Local port: ");
+  Serial.println(udp.localPort());
+
 }

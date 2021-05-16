@@ -280,10 +280,12 @@ void uSEMP::handlePowerCtl()
             int idx = p1Val.indexOf("<On>",sizeof(resp_header));
             if ( idx >= 0) {
                 String cmd =  p1Val.substring(idx+4,idx+4+4);
-                if ( cmd == "true" ) {
-                    updateEMstat( EM_ON );
-                } else {
-                    updateEMstat( EM_OFF );
+                if ( stat.m_acceptEMSignal ) {
+                    if ( cmd == "true" ) {
+                        updateEMstat( EM_ON );
+                    } else {
+                        updateEMstat( EM_OFF );
+                    }
                 }
             }
             m_server->send ( 200, "application/xml", "<Device2EM></Device2EM>"  );
@@ -316,7 +318,6 @@ void uSEMP::startService( ) {
             wp += makeDeviceStatusRequest(&m_respBuffer[wp]);
         wp += makePlanningRequests( getTime(), &m_respBuffer[wp]);
         wp += snprintf_P(&m_respBuffer[wp], m_sizeRespBuffer-wp, "%s", resp_footer );
-
 
         m_server->send ( 200, "application/xml", m_respBuffer );
     });
