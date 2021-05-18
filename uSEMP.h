@@ -147,6 +147,11 @@ public:
      */
     unsigned long end() { return m_latestEnd; }
 
+    /**
+     * @return  latest end
+     */
+    unsigned long remaining() { return max(m_maxOnTime, m_minOnTime); }
+
 
     /**
      * @return true if this plan is still requesting energy
